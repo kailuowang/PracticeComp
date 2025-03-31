@@ -67,7 +67,7 @@ class PracticeTrackingServiceTimerTest {
         // Check start time against captured time
         assertEquals("Start time should match scheduler time before action", timeBeforeAction, service.getMusicStartTimeMillisForTest())
         assertEquals("Accumulated time should still be 0", 0L, service.getAccumulatedTimeMillisForTest())
-        assertEquals("Status should update", "Practicing: Music", DetectionStateHolder.state.value.statusMessage)
+        assertEquals("Status should update", "Practicing", DetectionStateHolder.state.value.statusMessage)
     }
 
     @Test
@@ -78,7 +78,7 @@ class PracticeTrackingServiceTimerTest {
         // Setup - Start with music playing and use scheduler time
         val fakeStartTime = scheduler.currentTime
         service.setTimerStateForTest(isPlaying = true, startTime = fakeStartTime, accumulatedTime = 0L)
-        DetectionStateHolder.updateState(newStatus = "Practicing: Piano")
+        DetectionStateHolder.updateState(newStatus = "Practicing")
         
         // Advance virtual time to simulate music playing for a while
         scheduler.advanceTimeBy(simulatedElapsedTime)
@@ -95,7 +95,7 @@ class PracticeTrackingServiceTimerTest {
         assertTrue("Accumulated time should be approximately $simulatedElapsedTime ms", 
                    accumulatedTime > 0 && Math.abs(accumulatedTime - simulatedElapsedTime) < 100)
         
-        assertEquals("Paused (Last sound: Silence)", DetectionStateHolder.state.value.statusMessage)
+        assertEquals("Status should be empty", "", DetectionStateHolder.state.value.statusMessage)
     }
 
     @Test

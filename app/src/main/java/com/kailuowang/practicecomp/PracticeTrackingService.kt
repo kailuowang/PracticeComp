@@ -204,8 +204,8 @@ class PracticeTrackingService(
              // Music Started
              isMusicCurrentlyPlaying = true
              musicStartTimeMillis = now // Use 'now' from injected clock
-             val status = "Practicing: $categoryLabel"
-             Log.i(TAG, "$status (Score: $score)")
+             val status = "Practicing"
+             Log.i(TAG, "Music detected: $categoryLabel (Score: $score)")
              DetectionStateHolder.updateState(newStatus = status)
              // Time update handled by uiUpdateExecutor
 
@@ -217,20 +217,20 @@ class PracticeTrackingService(
              }
              isMusicCurrentlyPlaying = false
              musicStartTimeMillis = 0L
-             val status = "Paused (Last sound: $categoryLabel)"
+             val status = "" // Empty string when not practicing
              Log.i(TAG, "Practice stopped. Added ${elapsedMillis}ms. Total: ${accumulatedTimeMillis}ms")
              DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
 
          } else if (detectedMusic && isMusicCurrentlyPlaying) {
              // Music continues - update status if needed, time handled by UI timer
-             val status = "Practicing: $categoryLabel"
+             val status = "Practicing"
              // Log.d(TAG, "Music continues...")
              DetectionStateHolder.updateState(newStatus = status)
              // Note: We could potentially update the start time slightly here if needed,
              // but the UI timer recalculates from the original start time, which is simpler.
          } else { // !detectedMusic && !isMusicCurrentlyPlaying
              // Music remains stopped - update status
-             val status = "Listening... (Sound: $categoryLabel)"
+             val status = "" // Empty string when not practicing
              // Log.d(TAG, "Listening...")
              DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
          }
@@ -283,7 +283,7 @@ class PracticeTrackingService(
         releaseAudioResources()
 
         // Update state holder AFTER calculating final time and releasing resources
-        DetectionStateHolder.updateState(newStatus = "Stopped", newTimeMillis = finalAccumulatedTime)
+        DetectionStateHolder.updateState(newStatus = "", newTimeMillis = finalAccumulatedTime)
 
         resetTimerState() // Reset internal timer state variables
         Log.d(TAG, "Audio processing stopped and resources released. Final accumulated time: $finalAccumulatedTime ms")

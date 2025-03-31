@@ -217,17 +217,22 @@ fun PracticeSessionScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Display Detection Status
-            Text(
-                text = "Status: ${uiState.detectionStatus}",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            // Display Detection Status only if it's not empty
+            if (uiState.detectionStatus.isNotEmpty()) {
+                Text(
+                    text = "Status: ${uiState.detectionStatus}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            } else {
+                // Add padding to maintain layout consistency
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             if (isServiceRunning) {
-                 Text("Monitoring active...", style = MaterialTheme.typography.bodyMedium)
+                Text("Monitoring active...", style = MaterialTheme.typography.bodyMedium)
             } else if (!hasPermissions) {
-                 Text("Waiting for permissions...", style = MaterialTheme.typography.bodyMedium)
+                Text("Waiting for permissions...", style = MaterialTheme.typography.bodyMedium)
             }
             // TODO: Display tracking status/detected time
         }
