@@ -43,7 +43,7 @@ class PracticeTrackingService(
     private val MODEL_NAME = "yamnet.tflite"
     private val CLASSIFICATION_INTERVAL_MS = 500L // How often to classify audio
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
-    private val MUSIC_CONFIDENCE_THRESHOLD = 0.5f // Adjusted threshold
+    private val MUSIC_CONFIDENCE_THRESHOLD = 0.7f // Increased threshold from 0.5f to 0.7f
     private val NON_PRACTICE_INTERVAL_MS = 8000L // Wait 8 seconds before considering practice stopped
 
     private var audioRecord: AudioRecord? = null
@@ -183,12 +183,27 @@ class PracticeTrackingService(
 
             if (results.isNotEmpty() && results[0].categories.isNotEmpty()) {
                 val categories = results[0].categories
+                
+                // More specific filter for musical instruments
                 val musicCategory = categories.filter { category ->
-                    category.score > MUSIC_CONFIDENCE_THRESHOLD &&
-                    (category.label.contains("music", ignoreCase = true) ||
-                     category.label.contains("instrument", ignoreCase = true) ||
-                     category.label.contains("singing", ignoreCase = true) ||
-                     category.label.contains("speech", ignoreCase = true)
+                    category.score > MUSIC_CONFIDENCE_THRESHOLD && (
+                        // Specific instrument patterns
+                        category.label.contains("musical instrument", ignoreCase = true) ||
+                        category.label.contains("guitar", ignoreCase = true) ||
+                        category.label.contains("piano", ignoreCase = true) ||
+                        category.label.contains("violin", ignoreCase = true) ||
+                        category.label.contains("trumpet", ignoreCase = true) ||
+                        category.label.contains("saxophone", ignoreCase = true) ||
+                        category.label.contains("flute", ignoreCase = true) ||
+                        category.label.contains("drum", ignoreCase = true) ||
+                        category.label.contains("bass", ignoreCase = true) ||
+                        // Generic music patterns
+                        (category.label.contains("music", ignoreCase = true) && 
+                         !category.label.contains("background", ignoreCase = true)) ||
+                        // Singing only with high confidence
+                        (category.label.contains("singing", ignoreCase = true) && 
+                         category.score > 0.8f)
+                        // Speech is removed from detection
                     )
                 }.maxByOrNull { it.score }
 
@@ -196,11 +211,13 @@ class PracticeTrackingService(
                     detectedMusic = true
                     topCategoryLabel = musicCategory.label
                     topScore = musicCategory.score
+                    Log.d(TAG, "Detected music: $topCategoryLabel with score $topScore")
                 } else {
                     val topOverall = categories.maxByOrNull { it.score }
                     if (topOverall != null) {
                         topCategoryLabel = topOverall.label
                         topScore = topOverall.score
+                        Log.d(TAG, "Not music: $topCategoryLabel with score $topScore")
                     }
                 }
             }
