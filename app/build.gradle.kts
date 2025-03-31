@@ -7,16 +7,19 @@ plugins {
 
 android {
     namespace = "com.kailuowang.practicecomp"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.kailuowang.practicecomp"
-        minSdk = 33
-        targetSdk = 35
+        minSdk = 26
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
@@ -29,30 +32,45 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
     }
     buildFeatures {
         compose = true
         buildConfig = true
     }
-    // Configure test options for unit tests
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    
     testOptions {
-        unitTests.all { test -> // Access the Test task object
-            test.testLogging {
-                // Show standard output and error streams in the console
-                showStandardStreams = true
-                // Optional: Show more events like passed/skipped/failed
-                events = setOf(org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED,
-                               org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED,
-                               org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
-                               org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT,
-                               org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_ERROR)
-                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL // Use enum
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                test ->
+                test.testLogging {
+                    events = setOf(
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED,
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED,
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT,
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_ERROR
+                    )
+                    showStandardStreams = true
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                }
             }
+            
+            // Allow Android APIs to be used without mocking
+            isReturnDefaultValues = true
         }
     }
 }
@@ -90,4 +108,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.rules)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Add Architecture Components testing
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
 }
