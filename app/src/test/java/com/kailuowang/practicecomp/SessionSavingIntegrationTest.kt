@@ -96,13 +96,13 @@ class SessionSavingIntegrationTest {
         // First detect no music, which sets the lastMusicDetectionTimeMillis
         service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
         // Now manually set the lastMusicDetectionTimeMillis to be old enough to trigger the threshold
-        val noMusicStartTime = testClock.getCurrentTimeMillis() - 6000 // 6 seconds ago (past the 5-second threshold)
+        val noMusicStartTime = testClock.getCurrentTimeMillis() - 9000 // 9 seconds ago (past the 8-second threshold)
         service.setLastMusicDetectionTimeMillisForTest(noMusicStartTime)
         // Call again to actually stop the timer now that we're past the threshold
         service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
         
-        // Advance the rest of the 5 minutes (minus the 6 seconds we skipped)
-        testClock.advanceBy(294000) // Remaining time to 5 minutes
+        // Advance the rest of the 5 minutes (minus the 9 seconds we skipped)
+        testClock.advanceBy(291000) // Remaining time to 5 minutes
         service.updateUiTimer() // Update UI with accumulated time
         
         // Detect music again for 5 more minutes
@@ -113,7 +113,7 @@ class SessionSavingIntegrationTest {
         // Stop music again using same approach
         service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
         // Manually set lastMusicDetectionTimeMillis to be old enough
-        val secondNoMusicStartTime = testClock.getCurrentTimeMillis() - 6000 // 6 seconds ago (past threshold)
+        val secondNoMusicStartTime = testClock.getCurrentTimeMillis() - 9000 // 9 seconds ago (past threshold)
         service.setLastMusicDetectionTimeMillisForTest(secondNoMusicStartTime)
         // Call again to actually stop the timer
         service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)

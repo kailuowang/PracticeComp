@@ -74,7 +74,7 @@ class PracticeTrackingServiceTimerTest {
     fun `updateTimerState WHEN music stops THEN stops timer and accumulates time`() = runTest(testDispatcher) {
         val scheduler = testDispatcher.scheduler 
         val simulatedElapsedTime = TimeUnit.SECONDS.toMillis(10)
-        val noMusicThreshold = 5000L // Match the 5-second threshold from service
+        val noMusicThreshold = 8000L // Match the 8-second threshold from service (updated)
 
         // Setup - Start with music playing and use scheduler time
         val fakeStartTime = scheduler.currentTime

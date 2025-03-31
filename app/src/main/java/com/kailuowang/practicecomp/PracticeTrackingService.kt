@@ -36,8 +36,8 @@ class PracticeTrackingService(
     private val MODEL_NAME = "yamnet.tflite"
     private val CLASSIFICATION_INTERVAL_MS = 500L // How often to classify audio
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
-    private val MUSIC_CONFIDENCE_THRESHOLD = 0.6f // Increased threshold for better accuracy
-    private val NO_MUSIC_THRESHOLD_MS = 5000L // Wait 5 seconds of no music before stopping timer
+    private val MUSIC_CONFIDENCE_THRESHOLD = 0.5f // Lowered threshold for better detection
+    private val NO_MUSIC_THRESHOLD_MS = 8000L // Increased to 8 seconds to handle longer pauses
 
     private var audioRecord: AudioRecord? = null
     private var soundClassifier: AudioClassifier? = null
@@ -169,12 +169,29 @@ class PracticeTrackingService(
 
             if (results.isNotEmpty() && results[0].categories.isNotEmpty()) {
                 val categories = results[0].categories
+                
+                // Log top 3 categories for debugging
+                val top3 = categories.sortedByDescending { it.score }.take(3)
+                Log.d(TAG, "Top 3 detected categories: " + 
+                    top3.joinToString { "${it.label} (${it.score})" })
+                
                 val musicCategory = categories.filter { category ->
                     category.score > MUSIC_CONFIDENCE_THRESHOLD &&
                     (category.label.contains("music", ignoreCase = true) ||
                      category.label.contains("instrument", ignoreCase = true) ||
-                     category.label.contains("singing", ignoreCase = true)
-                     // Removed speech to fix detection issue
+                     category.label.contains("singing", ignoreCase = true) ||
+                     category.label.contains("guitar", ignoreCase = true) ||
+                     category.label.contains("piano", ignoreCase = true) ||
+                     category.label.contains("violin", ignoreCase = true) ||
+                     category.label.contains("drum", ignoreCase = true) ||
+                     category.label.contains("flute", ignoreCase = true) ||
+                     category.label.contains("saxophone", ignoreCase = true) ||
+                     category.label.contains("trumpet", ignoreCase = true) ||
+                     category.label.contains("cello", ignoreCase = true) ||
+                     category.label.contains("clarinet", ignoreCase = true) ||
+                     category.label.contains("harp", ignoreCase = true) ||
+                     category.label.contains("orchestra", ignoreCase = true) ||
+                     category.label.contains("musical", ignoreCase = true)
                     )
                 }.maxByOrNull { it.score }
 
@@ -182,11 +199,13 @@ class PracticeTrackingService(
                     detectedMusic = true
                     topCategoryLabel = musicCategory.label
                     topScore = musicCategory.score
+                    Log.d(TAG, "Detected music: $topCategoryLabel with score $topScore")
                 } else {
                     val topOverall = categories.maxByOrNull { it.score }
                     if (topOverall != null) {
                         topCategoryLabel = topOverall.label
                         topScore = topOverall.score
+                        Log.d(TAG, "Not music: top category $topCategoryLabel with score $topScore")
                     }
                 }
             }
@@ -246,7 +265,7 @@ class PracticeTrackingService(
                      DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
                  } else {
                      // We're still within the threshold, consider music as still playing
-                     Log.d(TAG, "Brief pause in music (${timeSinceLastMusic}ms), continuing practice")
+                     Log.d(TAG, "Brief pause in music (${timeSinceLastMusic}ms of ${NO_MUSIC_THRESHOLD_MS}ms threshold), continuing practice")
                      // Keep status as practicing
                      DetectionStateHolder.updateState(newStatus = "Practicing")
                  }
