@@ -36,7 +36,7 @@ class PracticeTrackingService(
     private val MODEL_NAME = "yamnet.tflite"
     private val CLASSIFICATION_INTERVAL_MS = 500L // How often to classify audio
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
-    private val MUSIC_CONFIDENCE_THRESHOLD = 0.5f // Adjusted threshold
+    private val MUSIC_CONFIDENCE_THRESHOLD = 0.6f // Increased threshold for better accuracy
 
     private var audioRecord: AudioRecord? = null
     private var soundClassifier: AudioClassifier? = null
@@ -169,8 +169,8 @@ class PracticeTrackingService(
                     category.score > MUSIC_CONFIDENCE_THRESHOLD &&
                     (category.label.contains("music", ignoreCase = true) ||
                      category.label.contains("instrument", ignoreCase = true) ||
-                     category.label.contains("singing", ignoreCase = true) ||
-                     category.label.contains("speech", ignoreCase = true)
+                     category.label.contains("singing", ignoreCase = true)
+                     // Removed speech to fix detection issue
                     )
                 }.maxByOrNull { it.score }
 

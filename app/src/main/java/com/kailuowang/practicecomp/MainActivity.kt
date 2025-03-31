@@ -321,16 +321,19 @@ fun PracticeSessionScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Display Detection Status only if it's not empty
-            if (uiState.detectionStatus.isNotEmpty()) {
-                Text(
-                    text = "Status: ${uiState.detectionStatus}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            } else {
-                // Add padding to maintain layout consistency
-                Spacer(modifier = Modifier.height(16.dp))
+            // Status text section with fixed height
+            Box(
+                modifier = Modifier
+                    .height(MaterialTheme.typography.headlineSmall.lineHeight.value.dp + 16.dp)
+                    .padding(bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.detectionStatus.isNotEmpty()) {
+                    Text(
+                        text = "Status: ${uiState.detectionStatus}",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
             }
 
             if (isServiceRunning) {
