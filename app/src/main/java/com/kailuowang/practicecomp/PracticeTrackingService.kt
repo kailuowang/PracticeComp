@@ -245,9 +245,17 @@ class PracticeTrackingService(
              // Use injected clock for current time calculation
              currentDisplayTime += (clock.getCurrentTimeMillis() - musicStartTimeMillis)
          }
+         
+         // Calculate total session time
+         val totalSessionTime = clock.getCurrentTimeMillis() - DetectionStateHolder.state.value.sessionStartTimeMillis
+         
          // Log the value just before updating the state holder
-         Log.d(TAG, "[updateUiTimer] Calculated display time: $currentDisplayTime") // Add Log
-         DetectionStateHolder.updateState(newTimeMillis = currentDisplayTime)
+         Log.d(TAG, "[updateUiTimer] Calculated display time: $currentDisplayTime, Total session time: $totalSessionTime") 
+         
+         DetectionStateHolder.updateState(
+             newTimeMillis = currentDisplayTime,
+             newTotalSessionTimeMillis = totalSessionTime
+         )
      }
 
     // --- Expose state for testing (use with caution, only for unit tests) ---
@@ -278,15 +286,22 @@ class PracticeTrackingService(
 
         // This now uses the injected clock via calculateFinalTime()
         val finalAccumulatedTime = calculateFinalTime()
+        
+        // Calculate final total session time
+        val finalSessionTime = clock.getCurrentTimeMillis() - DetectionStateHolder.state.value.sessionStartTimeMillis
 
         // Release audio resources
         releaseAudioResources()
 
         // Update state holder AFTER calculating final time and releasing resources
-        DetectionStateHolder.updateState(newStatus = "", newTimeMillis = finalAccumulatedTime)
+        DetectionStateHolder.updateState(
+            newStatus = "", 
+            newTimeMillis = finalAccumulatedTime,
+            newTotalSessionTimeMillis = finalSessionTime
+        )
 
         resetTimerState() // Reset internal timer state variables
-        Log.d(TAG, "Audio processing stopped and resources released. Final accumulated time: $finalAccumulatedTime ms")
+        Log.d(TAG, "Audio processing stopped and resources released. Final accumulated time: $finalAccumulatedTime ms, Total session time: $finalSessionTime ms")
     }
 
     // Helper to calculate final time segment before resetting state

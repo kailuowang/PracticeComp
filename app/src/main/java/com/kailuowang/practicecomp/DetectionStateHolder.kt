@@ -10,18 +10,25 @@ import kotlinx.coroutines.flow.update
  */
 data class DetectionState(
     val statusMessage: String = "Initializing...",
-    val accumulatedTimeMillis: Long = 0L
+    val accumulatedTimeMillis: Long = 0L,
+    val totalSessionTimeMillis: Long = 0L,
+    val sessionStartTimeMillis: Long = System.currentTimeMillis()
 )
 
 object DetectionStateHolder {
     private val _state = MutableStateFlow(DetectionState())
     val state: StateFlow<DetectionState> = _state.asStateFlow()
 
-    fun updateState(newStatus: String? = null, newTimeMillis: Long? = null) {
+    fun updateState(
+        newStatus: String? = null, 
+        newTimeMillis: Long? = null,
+        newTotalSessionTimeMillis: Long? = null
+    ) {
         _state.update { currentState ->
             currentState.copy(
                 statusMessage = newStatus ?: currentState.statusMessage,
-                accumulatedTimeMillis = newTimeMillis ?: currentState.accumulatedTimeMillis
+                accumulatedTimeMillis = newTimeMillis ?: currentState.accumulatedTimeMillis,
+                totalSessionTimeMillis = newTotalSessionTimeMillis ?: currentState.totalSessionTimeMillis
             )
         }
     }

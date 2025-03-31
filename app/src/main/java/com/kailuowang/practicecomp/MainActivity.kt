@@ -12,6 +12,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -75,8 +77,11 @@ fun PracticeApp(
 @Composable
 fun PracticeListScreen(
     onStartPracticeClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: PracticeViewModel = viewModel()
 ) {
+    val sessions by viewModel.sessions.collectAsState()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -94,13 +99,84 @@ fun PracticeListScreen(
             }
         }
     ) { innerPadding ->
-        Box(
+        if (sessions.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No practice sessions yet. Tap + to start one.")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+            ) {
+                items(sessions) { session ->
+                    PracticeSessionItem(session = session)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PracticeSessionItem(session: PracticeSession, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            Text("Practice sessions will appear here.")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = session.getFormattedDate(),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = session.getFormattedStartTime(),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Total: ${session.getFormattedTotalTime()}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "Practice: ${session.getFormattedPracticeTime()}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                progress = { session.getPracticePercentage() / 100f }
+            )
+            
+            Text(
+                text = "${session.getPracticePercentage()}% of session spent practicing",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.End)
+            )
         }
     }
 }
@@ -174,6 +250,12 @@ fun PracticeSessionScreen(
                 Log.d("PracticeSessionScreen", "Stopping service on dispose.")
                 stopTrackingService(context)
                 isServiceRunning = false
+                
+                // Save the session data when leaving
+                viewModel.saveSession(
+                    totalTimeMillis = DetectionStateHolder.state.value.totalSessionTimeMillis,
+                    practiceTimeMillis = DetectionStateHolder.state.value.accumulatedTimeMillis
+                )
             }
         }
     }
@@ -210,7 +292,24 @@ fun PracticeSessionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Display Session Duration
+            Text(
+                text = "Session Time",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Text(
+                text = uiState.formattedTotalSessionTime,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            
             // Display Accumulated Practice Time
+            Text(
+                text = "Practice Time",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
             Text(
                 text = uiState.formattedPracticeTime,
                 style = MaterialTheme.typography.displayMedium,
@@ -234,7 +333,33 @@ fun PracticeSessionScreen(
             } else if (!hasPermissions) {
                 Text("Waiting for permissions...", style = MaterialTheme.typography.bodyMedium)
             }
-            // TODO: Display tracking status/detected time
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // End Session Button
+            Button(
+                onClick = {
+                    if (isServiceRunning) {
+                        stopTrackingService(context)
+                        isServiceRunning = false
+                        
+                        // Save session data when ending session with button
+                        viewModel.saveSession(
+                            totalTimeMillis = DetectionStateHolder.state.value.totalSessionTimeMillis,
+                            practiceTimeMillis = DetectionStateHolder.state.value.accumulatedTimeMillis
+                        )
+                        
+                        // Navigate back after saving
+                        onNavigateBack()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+                modifier = Modifier.width(200.dp)
+            ) {
+                Text("End Session")
+            }
         }
     }
 }
@@ -261,6 +386,19 @@ private fun stopTrackingService(context: android.content.Context) {
 fun PracticeListScreenPreview() {
     PracticeCompTheme {
         PracticeListScreen(onStartPracticeClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Session Item")
+@Composable
+fun PracticeSessionItemPreview() {
+    val sampleSession = PracticeSession(
+        totalTimeMillis = 3600000, // 1 hour
+        practiceTimeMillis = 2400000 // 40 minutes
+    )
+    
+    PracticeCompTheme {
+        PracticeSessionItem(session = sampleSession)
     }
 }
 
