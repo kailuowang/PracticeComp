@@ -153,7 +153,7 @@ fun PracticeSessionScreen(
         hasPermissions = allCurrentlyGranted
 
         if (allCurrentlyGranted) {
-            Log.d("PracticeSessionScreen", "Permissions already granted.")
+            Log.d("PracticeSessionScreen", "Permissions granted.")
             if (!isServiceRunning) {
                 startTrackingService(context)
                 isServiceRunning = true
@@ -173,6 +173,7 @@ fun PracticeSessionScreen(
             if (isServiceRunning) {
                 Log.d("PracticeSessionScreen", "Stopping service on dispose.")
                 stopTrackingService(context)
+                isServiceRunning = false
             }
         }
     }
@@ -209,15 +210,19 @@ fun PracticeSessionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Display Accumulated Practice Time
+            Text(
+                text = uiState.formattedPracticeTime,
+                style = MaterialTheme.typography.displayMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
             // Display Detection Status
             Text(
                 text = "Status: ${uiState.detectionStatus}",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-
-            Text("Timer and other session details will go here.")
-            Spacer(modifier = Modifier.height(32.dp))
 
             if (isServiceRunning) {
                  Text("Monitoring active...", style = MaterialTheme.typography.bodyMedium)

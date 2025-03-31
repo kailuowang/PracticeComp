@@ -39,6 +39,22 @@ android {
         compose = true
         buildConfig = true
     }
+    // Configure test options for unit tests
+    testOptions {
+        unitTests.all { test -> // Access the Test task object
+            test.testLogging {
+                // Show standard output and error streams in the console
+                showStandardStreams = true
+                // Optional: Show more events like passed/skipped/failed
+                events = setOf(org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED,
+                               org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED,
+                               org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
+                               org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT,
+                               org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_ERROR)
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL // Use enum
+            }
+        }
+    }
 }
 
 dependencies {
@@ -60,6 +76,11 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.robolectric)
+
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

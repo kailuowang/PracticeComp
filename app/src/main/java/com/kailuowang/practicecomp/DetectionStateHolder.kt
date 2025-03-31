@@ -1,17 +1,40 @@
 package com.kailuowang.practicecomp
 
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /**
- * Simple singleton to hold and share the music detection status between the
- * Service and the UI (via ViewModel).
+ * Holds the state related to practice detection, shared between Service and UI.
  */
-object DetectionStateHolder {
-    private val _detectionStatus = MutableStateFlow("Idle")
-    val detectionStatus = _detectionStatus.asStateFlow()
+data class DetectionState(
+    val statusMessage: String = "Initializing...",
+    val accumulatedTimeMillis: Long = 0L
+)
 
-    fun updateStatus(newStatus: String) {
-        _detectionStatus.value = newStatus
+object DetectionStateHolder {
+    private val _state = MutableStateFlow(DetectionState())
+    val state: StateFlow<DetectionState> = _state.asStateFlow()
+
+    fun updateState(newStatus: String? = null, newTimeMillis: Long? = null) {
+        _state.update { currentState ->
+            currentState.copy(
+                statusMessage = newStatus ?: currentState.statusMessage,
+                accumulatedTimeMillis = newTimeMillis ?: currentState.accumulatedTimeMillis
+            )
+        }
+    }
+
+    // Optional: Reset function if needed when service starts/stops explicitly
+    fun resetState() {
+        _state.value = DetectionState()
+    }
+
+    // Keep the old updateStatus for simple status messages if convenient,
+    // but mark as deprecated or encourage using updateState.
+    @Deprecated("Use updateState for more complete updates", ReplaceWith("updateState(newStatus = status)"))
+    fun updateStatus(status: String) {
+        updateState(newStatus = status)
     }
 } 
