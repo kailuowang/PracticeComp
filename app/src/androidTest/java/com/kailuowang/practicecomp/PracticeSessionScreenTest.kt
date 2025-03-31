@@ -27,9 +27,8 @@ class PracticeSessionScreenTest {
     @get:Rule
     val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
         Manifest.permission.RECORD_AUDIO,
-        // Add POST_NOTIFICATIONS if targeting Android 13+ and it's needed for startForegroundService
-        // For now, just RECORD_AUDIO is the most critical for the tracking logic itself.
-        // android.Manifest.permission.POST_NOTIFICATIONS // Uncomment if needed
+        // Grant notification permission as well, required on API 33+
+        Manifest.permission.POST_NOTIFICATIONS
     )
 
     // Use createAndroidComposeRule to access Activity context if needed,

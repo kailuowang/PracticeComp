@@ -1,8 +1,10 @@
 package com.kailuowang.practicecomp
 
+import android.Manifest
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.GrantPermissionRule
 
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,6 +16,12 @@ import org.junit.Rule
  */
 @RunWith(AndroidJUnit4::class)
 class NavigationAndSessionFlowTest {
+
+    @get:Rule
+    val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.POST_NOTIFICATIONS
+    )
 
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
