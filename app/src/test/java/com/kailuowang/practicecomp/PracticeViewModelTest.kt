@@ -109,4 +109,12 @@ class PracticeViewModelTest {
         
         assertEquals("01:02:03", formatted)
     }
+    
+    @Test
+    fun `refreshSessions method exists and does not crash`() = runTest {
+        // Simply verify the method exists and can be called without throwing exceptions
+        viewModel.refreshSessions()
+        // Method exists and did not crash
+        testDispatcher.scheduler.advanceUntilIdle()
+    }
 } 

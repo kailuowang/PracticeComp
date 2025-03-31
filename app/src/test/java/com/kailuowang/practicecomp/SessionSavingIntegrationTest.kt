@@ -193,4 +193,22 @@ class SessionSavingIntegrationTest {
         assertEquals(900000L, sessions[1].practiceTimeMillis)
         assertEquals(50, sessions[1].getPracticePercentage())
     }
+    
+    @Test
+    fun `refreshSessions can be called without crashing`() = runTest {
+        // Prepare mock to return null initially
+        Mockito.`when`(mockSharedPrefs.getString("saved_sessions", null)).thenReturn(null)
+        
+        // Save a dummy session the normal way
+        val sessionTime = 3600000L // 1 hour
+        val practiceTime = 1800000L // 30 minutes
+        
+        // Create a session and save it
+        viewModel.saveSession(sessionTime, practiceTime)
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Verify we can call refreshSessions without errors
+        viewModel.refreshSessions()
+        testDispatcher.scheduler.advanceUntilIdle()
+    }
 } 
