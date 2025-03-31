@@ -11,6 +11,7 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -109,13 +110,35 @@ fun PracticeListScreen(
                 Text("No practice sessions yet. Tap + to start one.")
             }
         } else {
+            // Group sessions by date
+            val sessionsByDate = sessions.groupBy { it.getFormattedDate() }
+            
             LazyColumn(
                 modifier = Modifier
                     .padding(innerPadding)
-                    .fillMaxSize()
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp) // Add padding at the bottom for better scrolling
             ) {
-                items(sessions) { session ->
-                    PracticeSessionItem(session = session)
+                sessionsByDate.forEach { (date, sessionsForDate) ->
+                    // Add date header
+                    item(key = "header_$date") {
+                        Text(
+                            text = date,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                    
+                    // Add items for this date
+                    items(
+                        items = sessionsForDate,
+                        key = { it.id } // Use unique ID for better performance and animation
+                    ) { session ->
+                        PracticeSessionItem(session = session)
+                    }
                 }
             }
         }

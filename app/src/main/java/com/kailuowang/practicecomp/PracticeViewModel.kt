@@ -84,7 +84,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         Log.d("PracticeViewModel", "Saving session - Total: ${newSession.getFormattedTotalTime()}, Practice: ${newSession.getFormattedPracticeTime()}")
         
         _sessions.update { currentSessions ->
-            val updatedSessions = currentSessions + newSession
+            // Add new session to the beginning of the list (newest first)
+            val updatedSessions = listOf(newSession) + currentSessions
             Log.d("PracticeViewModel", "Session saved - Current sessions count: ${updatedSessions.size}")
             
             // Save to SharedPreferences in a background thread
@@ -110,10 +111,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                         loadedSessions.add(session)
                     }
                     
-                    Log.d("PracticeViewModel", "Loaded ${loadedSessions.size} saved sessions")
+                    // Sort sessions by date in reverse order (newest first)
+                    val sortedSessions = loadedSessions.sortedByDescending { it.date }
+                    
+                    Log.d("PracticeViewModel", "Loaded ${sortedSessions.size} saved sessions")
                     
                     withContext(Dispatchers.Main) {
-                        _sessions.value = loadedSessions
+                        _sessions.value = sortedSessions
                     }
                 } catch (e: Exception) {
                     Log.e("PracticeViewModel", "Error loading saved sessions", e)
