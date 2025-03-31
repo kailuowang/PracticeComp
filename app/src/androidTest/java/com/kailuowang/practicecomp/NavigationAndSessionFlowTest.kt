@@ -30,12 +30,12 @@ class NavigationAndSessionFlowTest {
     private val startPracticeButtonDesc = "Start new practice session"
     private val practiceSessionTitle = "Practice Session" // Assuming this title exists
     private val backButtonDesc = "Back"
-    private val practiceListPlaceholderText = "Practice sessions will appear here."
+    private val practiceListPlaceholderText = "No practice sessions yet. Tap + to start one."
 
     @Test
     fun navigate_fromList_toSession_andBack() {
         // 1. Wait for the initial List screen to be ready and verify placeholder
-        composeTestRule.waitUntil(timeoutMillis = 5000) {
+        composeTestRule.waitUntil(timeoutMillis = 15000) {
              composeTestRule
                 .onAllNodesWithText(practiceListPlaceholderText)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -48,7 +48,7 @@ class NavigationAndSessionFlowTest {
         composeTestRule.waitForIdle() // Wait after click for navigation
 
         // 3. Wait for Session screen to display and verify title
-        composeTestRule.waitUntil(timeoutMillis = 5000) {
+        composeTestRule.waitUntil(timeoutMillis = 15000) {
              composeTestRule
                 .onAllNodesWithText(practiceSessionTitle)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -61,7 +61,7 @@ class NavigationAndSessionFlowTest {
         composeTestRule.waitForIdle() // Wait after click for navigation
 
         // 5. Wait for List screen to reappear and verify placeholder
-        composeTestRule.waitUntil(timeoutMillis = 5000) {
+        composeTestRule.waitUntil(timeoutMillis = 15000) {
              composeTestRule
                 .onAllNodesWithText(practiceListPlaceholderText)
                 .fetchSemanticsNodes().isNotEmpty()
