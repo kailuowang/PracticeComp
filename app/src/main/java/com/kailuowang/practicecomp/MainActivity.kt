@@ -251,10 +251,15 @@ fun PracticeSessionScreen(
                 stopTrackingService(context)
                 isServiceRunning = false
                 
+                val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
+                val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
+                
+                Log.d("PracticeSessionScreen", "Saving session on dispose - Total time: $totalTime ms, Practice time: $practiceTime ms")
+                
                 // Save the session data when leaving
                 viewModel.saveSession(
-                    totalTimeMillis = DetectionStateHolder.state.value.totalSessionTimeMillis,
-                    practiceTimeMillis = DetectionStateHolder.state.value.accumulatedTimeMillis
+                    totalTimeMillis = totalTime,
+                    practiceTimeMillis = practiceTime
                 )
             }
         }
@@ -343,10 +348,15 @@ fun PracticeSessionScreen(
                         stopTrackingService(context)
                         isServiceRunning = false
                         
+                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
+                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
+                        
+                        Log.d("PracticeSessionScreen", "Saving session from button - Total time: $totalTime ms, Practice time: $practiceTime ms")
+                        
                         // Save session data when ending session with button
                         viewModel.saveSession(
-                            totalTimeMillis = DetectionStateHolder.state.value.totalSessionTimeMillis,
-                            practiceTimeMillis = DetectionStateHolder.state.value.accumulatedTimeMillis
+                            totalTimeMillis = totalTime,
+                            practiceTimeMillis = practiceTime
                         )
                         
                         // Navigate back after saving
@@ -405,9 +415,10 @@ fun PracticeSessionItemPreview() {
 @Preview(showBackground = true, name = "Practice Session")
 @Composable
 fun PracticeSessionScreenPreview() {
+    val previewViewModel: PracticeViewModel = viewModel()
     PracticeCompTheme {
         PracticeSessionScreen(
-             viewModel = viewModel(),
+             viewModel = previewViewModel,
              onNavigateBack = {}
         )
     }

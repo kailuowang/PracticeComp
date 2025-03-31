@@ -1,5 +1,8 @@
 package com.kailuowang.practicecomp
 
+import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -13,6 +16,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mock
+import org.mockito.Mockito.`when`
+import org.mockito.junit.MockitoJUnitRunner
+import org.mockito.kotlin.any
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLog
@@ -21,14 +28,22 @@ import org.robolectric.shadows.ShadowLog
  * Integration test for session saving functionality
  */
 @ExperimentalCoroutinesApi
-@RunWith(RobolectricTestRunner::class)
-@Config(manifest = Config.NONE)
+@RunWith(MockitoJUnitRunner::class)
 class SessionSavingIntegrationTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var viewModel: PracticeViewModel
     private lateinit var testClock: TestClock
     private lateinit var service: PracticeTrackingService
+    
+    @Mock
+    private lateinit var mockApplication: Application
+    
+    @Mock
+    private lateinit var mockSharedPrefs: SharedPreferences
+    
+    @Mock
+    private lateinit var mockEditor: SharedPreferences.Editor
 
     // Test implementation of Clock for controlling time
     inner class TestClock : Clock {
@@ -46,10 +61,16 @@ class SessionSavingIntegrationTest {
         // Set up ShadowLog to redirect Android Log calls to System.out
         ShadowLog.stream = System.out
         
+        // Mock SharedPreferences
+        `when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
+        `when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
+        `when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
+        `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
+        
         Dispatchers.setMain(testDispatcher)
         testClock = TestClock()
         service = PracticeTrackingService(clock = testClock)
-        viewModel = PracticeViewModel()
+        viewModel = PracticeViewModel(mockApplication)
         
         // Reset the state holder before each test
         DetectionStateHolder.resetState()

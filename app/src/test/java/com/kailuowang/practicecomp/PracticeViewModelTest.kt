@@ -1,5 +1,8 @@
 package com.kailuowang.practicecomp
 
+import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -11,18 +14,41 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mock
+import org.mockito.Mockito.`when`
+import org.mockito.junit.MockitoJUnitRunner
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
 import java.time.LocalDateTime
 
 @ExperimentalCoroutinesApi
+@RunWith(MockitoJUnitRunner::class)
 class PracticeViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var viewModel: PracticeViewModel
+    
+    @Mock
+    private lateinit var mockApplication: Application
+    
+    @Mock
+    private lateinit var mockSharedPrefs: SharedPreferences
+    
+    @Mock
+    private lateinit var mockEditor: SharedPreferences.Editor
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = PracticeViewModel()
+        
+        // Mock SharedPreferences
+        `when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
+        `when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
+        `when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
+        `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
+        
+        viewModel = PracticeViewModel(mockApplication)
         
         // Reset the state holder before each test
         DetectionStateHolder.resetState()
