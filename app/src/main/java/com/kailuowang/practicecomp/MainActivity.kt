@@ -11,7 +11,6 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -30,6 +30,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.kailuowang.practicecomp.ui.theme.PracticeCompTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -55,6 +56,22 @@ fun PracticeApp(
     navController: NavHostController = rememberNavController(),
     practiceViewModel: PracticeViewModel = viewModel()
 ) {
+    // Simple session state to track
+    val isReturningFromSession = remember { mutableStateOf(false) }
+    val isBackgroundSessionActive = remember { mutableStateOf(false) }
+    
+    // Track current route to detect navigation events
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    
+    // Effect to refresh sessions when navigating to list screen after a session
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == AppDestinations.PRACTICE_LIST && isReturningFromSession.value) {
+            Log.d("PracticeApp", "Returning to list screen from session, refreshing")
+            practiceViewModel.refreshSessions()
+            isReturningFromSession.value = false
+        }
+    }
+    
     NavHost(
         navController = navController,
         startDestination = AppDestinations.PRACTICE_LIST,
@@ -62,13 +79,26 @@ fun PracticeApp(
     ) {
         composable(route = AppDestinations.PRACTICE_LIST) {
             PracticeListScreen(
-                onStartPracticeClick = { navController.navigate(AppDestinations.PRACTICE_SESSION) }
+                onStartPracticeClick = { 
+                    navController.navigate(AppDestinations.PRACTICE_SESSION) 
+                },
+                isBackgroundSessionActive = isBackgroundSessionActive.value,
+                onResumeSession = {
+                    navController.navigate(AppDestinations.PRACTICE_SESSION)
+                }
             )
         }
         composable(route = AppDestinations.PRACTICE_SESSION) {
             PracticeSessionScreen(
                 viewModel = practiceViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onEndSession = {
+                    // Mark that we're returning from a session
+                    isReturningFromSession.value = true
+                    
+                    // Reset state and navigate back, but don't stop service here
+                    // Service will only be stopped when End Session button is pressed
+                    navController.popBackStack()
+                }
             )
         }
     }
@@ -78,16 +108,32 @@ fun PracticeApp(
 @Composable
 fun PracticeListScreen(
     onStartPracticeClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    isBackgroundSessionActive: Boolean,
+    onResumeSession: () -> Unit,
     viewModel: PracticeViewModel = viewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState()
-
+    val context = LocalContext.current
+    
+    // Check if service is running
+    val isServiceRunning = remember { mutableStateOf(false) }
+    
+    // Check if the service is running
+    LaunchedEffect(Unit) {
+        isServiceRunning.value = PracticeTrackingService.isServiceRunning
+        Log.d("PracticeListScreen", "Service running check: ${isServiceRunning.value}")
+    }
+    
+    // Always refresh sessions when this screen appears
+    LaunchedEffect(Unit) {
+        Log.d("PracticeListScreen", "Screen appeared, refreshing sessions")
+        viewModel.refreshSessions()
+    }
+    
     Scaffold(
-        modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text("Practice Diary") },
+            CenterAlignedTopAppBar(
+                title = { Text("Practice Diary (v:28efe2a)") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -95,48 +141,78 @@ fun PracticeListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onStartPracticeClick) {
-                Icon(Icons.Filled.Add, contentDescription = "Start new practice session")
+            FloatingActionButton(
+                onClick = onStartPracticeClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Start new practice session"
+                )
             }
         }
     ) { innerPadding ->
-        if (sessions.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No practice sessions yet. Tap + to start one.")
-            }
-        } else {
-            // Group sessions by date
-            val sessionsByDate = sessions.groupBy { it.getFormattedDate() }
-            
-            LazyColumn(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp) // Add padding at the bottom for better scrolling
-            ) {
-                sessionsByDate.forEach { (date, sessionsForDate) ->
-                    // Add date header
-                    item(key = "header_$date") {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Display banner for active background session
+            if (isServiceRunning.value) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = date,
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                            text = "You have an active practice session running in the background",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium
                         )
+                        Button(
+                            onClick = onResumeSession,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("Resume")
+                        }
                     }
-                    
-                    // Add items for this date
-                    items(
-                        items = sessionsForDate,
-                        key = { it.id } // Use unique ID for better performance and animation
-                    ) { session ->
+                }
+            }
+            
+            if (sessions.isEmpty() && !isServiceRunning.value) {
+                // Display placeholder when no sessions exist and no active session
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No practice sessions yet. Tap + to start one.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                // Display session list when sessions exist
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    items(sessions) { session ->
                         PracticeSessionItem(session = session)
                     }
                 }
@@ -208,7 +284,7 @@ fun PracticeSessionItem(session: PracticeSession, modifier: Modifier = Modifier)
 @Composable
 fun PracticeSessionScreen(
     viewModel: PracticeViewModel,
-    onNavigateBack: () -> Unit,
+    onEndSession: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -239,7 +315,7 @@ fun PracticeSessionScreen(
                 }
             } else {
                 Log.w("PracticeSessionScreen", "Required permissions were denied.")
-                onNavigateBack()
+                onEndSession()
             }
         }
     )
@@ -269,27 +345,11 @@ fun PracticeSessionScreen(
     DisposableEffect(Unit) {
         onDispose {
             Log.d("PracticeSessionScreen", "Disposing PracticeSessionScreen.")
-            if (isServiceRunning) {
-                Log.d("PracticeSessionScreen", "Stopping service on dispose.")
-                stopTrackingService(context)
-                isServiceRunning = false
-                
-                val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-                val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-                
-                // Only save if we have some meaningful practice time to record
-                if (totalTime > 5000) { // At least 5 seconds of total time
-                    Log.d("PracticeSessionScreen", "Saving session on dispose - Total time: $totalTime ms, Practice time: $practiceTime ms")
-                    
-                    // Save the session data when leaving
-                    viewModel.saveSession(
-                        totalTimeMillis = totalTime,
-                        practiceTimeMillis = practiceTime
-                    )
-                } else {
-                    Log.d("PracticeSessionScreen", "Not saving session - session too short (${totalTime}ms)")
-                }
-            }
+            // Don't stop the service when screen is disposed - this allows background operation
+            Log.d("PracticeSessionScreen", "Keeping service running in background")
+            
+            // No saving on dispose - only save when End Session button is clicked
+            Log.d("PracticeSessionScreen", "NOT saving session on dispose - save only happens on End Session button")
         }
     }
     // --- End Permission and Lifecycle Handling ---
@@ -298,29 +358,12 @@ fun PracticeSessionScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Practice Session") },
+                title = { Text("Practice Session (v:28efe2a)") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // Save session data before navigating back
-                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-                        
-                        // Only save if we have some meaningful practice time to record
-                        if (totalTime > 5000) { // At least 5 seconds of total time
-                            Log.d("PracticeSessionScreen", "Saving session from back button - Total time: $totalTime ms, Practice time: $practiceTime ms")
-                            viewModel.saveSession(
-                                totalTimeMillis = totalTime,
-                                practiceTimeMillis = practiceTime
-                            )
-                        }
-                        
-                        // Stop the service if it's running
-                        if (isServiceRunning) {
-                            stopTrackingService(context)
-                            isServiceRunning = false
-                        }
-                        
-                        onNavigateBack()
+                        // Keep service running when navigating back
+                        Log.d("PracticeSessionScreen", "Navigating back but keeping service running")
+                        onEndSession()
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -368,19 +411,16 @@ fun PracticeSessionScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Status text section with fixed height
-            Box(
-                modifier = Modifier
-                    .height(MaterialTheme.typography.headlineSmall.lineHeight.value.dp + 16.dp)
-                    .padding(bottom = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (uiState.detectionStatus.isNotEmpty()) {
-                    Text(
-                        text = "Status: ${uiState.detectionStatus}",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                }
+            // Display Detection Status only if it's not empty
+            if (uiState.detectionStatus.isNotEmpty()) {
+                Text(
+                    text = "Status: ${uiState.detectionStatus}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            } else {
+                // Add padding to maintain layout consistency
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             if (isServiceRunning) {
@@ -391,33 +431,28 @@ fun PracticeSessionScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // End Session Button
+            // End Session Button - This stops the service and saves the session
             Button(
                 onClick = {
-                    // Stop the service if it's running
                     if (isServiceRunning) {
                         stopTrackingService(context)
                         isServiceRunning = false
-                    }
-                    
-                    val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-                    val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-                    
-                    // Only save if we have some meaningful practice time to record
-                    if (totalTime > 5000) { // At least 5 seconds of total time
-                        Log.d("PracticeSessionScreen", "Saving session from button - Total time: $totalTime ms, Practice time: $practiceTime ms")
                         
-                        // Save session data when ending session with button
-                        viewModel.saveSession(
-                            totalTimeMillis = totalTime,
-                            practiceTimeMillis = practiceTime
-                        )
-                    } else {
-                        Log.d("PracticeSessionScreen", "Not saving session from button - session too short (${totalTime}ms)")
+                        // Save the session data ONLY when End Session button is clicked
+                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
+                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
+                        
+                        // Only save if we have a meaningful practice session (more than 5 seconds)
+                        if (totalTime > 5000) {
+                            Log.d("PracticeSessionScreen", "Saving session from End button - Total: $totalTime, Practice: $practiceTime")
+                            viewModel.saveSession(totalTimeMillis = totalTime, practiceTimeMillis = practiceTime)
+                        } else {
+                            Log.d("PracticeSessionScreen", "Session too short to save (<= 5 sec): $totalTime")
+                        }
+                        
+                        // Navigate back after saving
+                        onEndSession()
                     }
-                    
-                    // Navigate back after saving
-                    onNavigateBack()
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
@@ -451,7 +486,7 @@ private fun stopTrackingService(context: android.content.Context) {
 @Composable
 fun PracticeListScreenPreview() {
     PracticeCompTheme {
-        PracticeListScreen(onStartPracticeClick = {})
+        PracticeListScreen(onStartPracticeClick = {}, isBackgroundSessionActive = false, onResumeSession = {})
     }
 }
 
@@ -475,7 +510,7 @@ fun PracticeSessionScreenPreview() {
     PracticeCompTheme {
         PracticeSessionScreen(
              viewModel = previewViewModel,
-             onNavigateBack = {}
+             onEndSession = {}
         )
     }
 }
