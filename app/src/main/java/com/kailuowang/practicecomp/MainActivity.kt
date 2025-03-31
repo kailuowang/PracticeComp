@@ -277,13 +277,18 @@ fun PracticeSessionScreen(
                 val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
                 val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
                 
-                Log.d("PracticeSessionScreen", "Saving session on dispose - Total time: $totalTime ms, Practice time: $practiceTime ms")
-                
-                // Save the session data when leaving
-                viewModel.saveSession(
-                    totalTimeMillis = totalTime,
-                    practiceTimeMillis = practiceTime
-                )
+                // Only save if we have some meaningful practice time to record
+                if (totalTime > 5000) { // At least 5 seconds of total time
+                    Log.d("PracticeSessionScreen", "Saving session on dispose - Total time: $totalTime ms, Practice time: $practiceTime ms")
+                    
+                    // Save the session data when leaving
+                    viewModel.saveSession(
+                        totalTimeMillis = totalTime,
+                        practiceTimeMillis = practiceTime
+                    )
+                } else {
+                    Log.d("PracticeSessionScreen", "Not saving session - session too short (${totalTime}ms)")
+                }
             }
         }
     }
@@ -296,6 +301,25 @@ fun PracticeSessionScreen(
                 title = { Text("Practice Session") },
                 navigationIcon = {
                     IconButton(onClick = {
+                        // Save session data before navigating back
+                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
+                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
+                        
+                        // Only save if we have some meaningful practice time to record
+                        if (totalTime > 5000) { // At least 5 seconds of total time
+                            Log.d("PracticeSessionScreen", "Saving session from back button - Total time: $totalTime ms, Practice time: $practiceTime ms")
+                            viewModel.saveSession(
+                                totalTimeMillis = totalTime,
+                                practiceTimeMillis = practiceTime
+                            )
+                        }
+                        
+                        // Stop the service if it's running
+                        if (isServiceRunning) {
+                            stopTrackingService(context)
+                            isServiceRunning = false
+                        }
+                        
                         onNavigateBack()
                     }) {
                         Icon(
@@ -370,13 +394,17 @@ fun PracticeSessionScreen(
             // End Session Button
             Button(
                 onClick = {
+                    // Stop the service if it's running
                     if (isServiceRunning) {
                         stopTrackingService(context)
                         isServiceRunning = false
-                        
-                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-                        
+                    }
+                    
+                    val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
+                    val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
+                    
+                    // Only save if we have some meaningful practice time to record
+                    if (totalTime > 5000) { // At least 5 seconds of total time
                         Log.d("PracticeSessionScreen", "Saving session from button - Total time: $totalTime ms, Practice time: $practiceTime ms")
                         
                         // Save session data when ending session with button
@@ -384,10 +412,12 @@ fun PracticeSessionScreen(
                             totalTimeMillis = totalTime,
                             practiceTimeMillis = practiceTime
                         )
-                        
-                        // Navigate back after saving
-                        onNavigateBack()
+                    } else {
+                        Log.d("PracticeSessionScreen", "Not saving session from button - session too short (${totalTime}ms)")
                     }
+                    
+                    // Navigate back after saving
+                    onNavigateBack()
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error

@@ -75,6 +75,11 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     // Save a completed practice session
     fun saveSession(totalTimeMillis: Long, practiceTimeMillis: Long) {
+        if (totalTimeMillis <= 0) {
+            Log.w("PracticeViewModel", "Attempted to save session with zero or negative total time, ignoring")
+            return
+        }
+        
         val newSession = PracticeSession(
             date = LocalDateTime.now(),
             totalTimeMillis = totalTimeMillis,
@@ -83,17 +88,16 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         
         Log.d("PracticeViewModel", "Saving session - Total: ${newSession.getFormattedTotalTime()}, Practice: ${newSession.getFormattedPracticeTime()}")
         
-        _sessions.update { currentSessions ->
-            // Add new session to the beginning of the list (newest first)
-            val updatedSessions = listOf(newSession) + currentSessions
-            Log.d("PracticeViewModel", "Session saved - Current sessions count: ${updatedSessions.size}")
-            
-            // Save to SharedPreferences in a background thread
-            viewModelScope.launch(Dispatchers.IO) {
-                saveSessionsToPrefs(updatedSessions)
-            }
-            
-            updatedSessions
+        // Update state directly to handle both test and production environments
+        val currentSessions = _sessions.value
+        val updatedSessions = listOf(newSession) + currentSessions
+        _sessions.value = updatedSessions
+        
+        Log.d("PracticeViewModel", "Session saved - Current sessions count: ${updatedSessions.size}")
+        
+        // Save to SharedPreferences in a background thread
+        viewModelScope.launch(Dispatchers.IO) {
+            saveSessionsToPrefs(updatedSessions)
         }
     }
     
@@ -136,11 +140,17 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 jsonArray.put(jsonObject)
             }
             
-            sharedPrefs.edit()
-                .putString(PREF_KEY_SESSIONS, jsonArray.toString())
-                .apply()
+            val editor = sharedPrefs.edit()
+            editor.putString(PREF_KEY_SESSIONS, jsonArray.toString())
             
-            Log.d("PracticeViewModel", "Saved ${sessionsList.size} sessions to SharedPreferences")
+            // Use commit() instead of apply() to ensure immediate synchronous saving
+            val success = editor.commit()
+            
+            if (success) {
+                Log.d("PracticeViewModel", "Successfully saved ${sessionsList.size} sessions to SharedPreferences")
+            } else {
+                Log.e("PracticeViewModel", "Failed to save sessions to SharedPreferences")
+            }
         } catch (e: Exception) {
             Log.e("PracticeViewModel", "Error saving sessions to SharedPreferences", e)
         }
