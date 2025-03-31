@@ -44,6 +44,7 @@ class PracticeTrackingService(
     private val CLASSIFICATION_INTERVAL_MS = 500L // How often to classify audio
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
     private val MUSIC_CONFIDENCE_THRESHOLD = 0.5f // Adjusted threshold
+    private val NON_PRACTICE_INTERVAL_MS = 8000L // Wait 8 seconds before considering practice stopped
 
     private var audioRecord: AudioRecord? = null
     private var soundClassifier: AudioClassifier? = null
@@ -58,6 +59,8 @@ class PracticeTrackingService(
     private var musicStartTimeMillis: Long = 0L
     @Volatile // Ensure visibility across threads
     private var accumulatedTimeMillis: Long = 0L
+    private var lastMusicDetectionTimeMillis: Long = 0L // Track when music was last detected
+    private var isPendingMusicStop: Boolean = false // Flag to track if we're in the "grace period"
 
     override fun onCreate() {
         super.onCreate()
@@ -103,6 +106,8 @@ class PracticeTrackingService(
         isMusicCurrentlyPlaying = false
         musicStartTimeMillis = 0L
         accumulatedTimeMillis = 0L
+        lastMusicDetectionTimeMillis = 0L
+        isPendingMusicStop = false
     }
 
     @SuppressLint("MissingPermission")
@@ -213,39 +218,70 @@ class PracticeTrackingService(
     internal fun updateTimerState(detectedMusic: Boolean, categoryLabel: String, score: Float) {
          // Use injected clock
          val now = clock.getCurrentTimeMillis()
-         if (detectedMusic && !isMusicCurrentlyPlaying) {
-             // Music Started
-             isMusicCurrentlyPlaying = true
-             musicStartTimeMillis = now // Use 'now' from injected clock
-             val status = "Practicing"
-             Log.i(TAG, "Music detected: $categoryLabel (Score: $score)")
-             DetectionStateHolder.updateState(newStatus = status)
-             // Time update handled by uiUpdateExecutor
-
-         } else if (!detectedMusic && isMusicCurrentlyPlaying) {
-             // Music Stopped
-             val elapsedMillis = now - musicStartTimeMillis // Calculate elapsed using 'now'
-             if (elapsedMillis > 0) { // Avoid adding zero or negative time if events are rapid
-                  accumulatedTimeMillis += elapsedMillis
+         
+         if (detectedMusic) {
+             // Any music detection resets the pending stop flag
+             if (isPendingMusicStop) {
+                 Log.i(TAG, "Music detected during grace period - resetting grace period, continuing practice")
              }
-             isMusicCurrentlyPlaying = false
-             musicStartTimeMillis = 0L
-             val status = "" // Empty string when not practicing
-             Log.i(TAG, "Practice stopped. Added ${elapsedMillis}ms. Total: ${accumulatedTimeMillis}ms")
-             DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
-
-         } else if (detectedMusic && isMusicCurrentlyPlaying) {
-             // Music continues - update status if needed, time handled by UI timer
-             val status = "Practicing"
-             // Log.d(TAG, "Music continues...")
-             DetectionStateHolder.updateState(newStatus = status)
-             // Note: We could potentially update the start time slightly here if needed,
-             // but the UI timer recalculates from the original start time, which is simpler.
-         } else { // !detectedMusic && !isMusicCurrentlyPlaying
-             // Music remains stopped - update status
-             val status = "" // Empty string when not practicing
-             // Log.d(TAG, "Listening...")
-             DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
+             isPendingMusicStop = false
+             lastMusicDetectionTimeMillis = now
+             
+             if (!isMusicCurrentlyPlaying) {
+                 // Music Started (either first time or after a pause)
+                 isMusicCurrentlyPlaying = true
+                 musicStartTimeMillis = now // Use 'now' from injected clock
+                 val status = "Practicing"
+                 Log.i(TAG, "Music detected: $categoryLabel (Score: $score) - Starting timer")
+                 DetectionStateHolder.updateState(newStatus = status)
+             } else {
+                 // Music continues - update status if needed
+                 val status = "Practicing"
+                 Log.d(TAG, "Music continues: $categoryLabel (Score: $score) - Timer keeps running")
+                 DetectionStateHolder.updateState(newStatus = status)
+             }
+         } else {
+             // No music detected
+             if (isMusicCurrentlyPlaying) {
+                 // Check if we're in the grace period
+                 if (!isPendingMusicStop) {
+                     // First silence detection after music - start grace period
+                     isPendingMusicStop = true
+                     lastMusicDetectionTimeMillis = now
+                     Log.i(TAG, "SILENCE DETECTED: Starting 8-second grace period (${NON_PRACTICE_INTERVAL_MS}ms) - KEEPING TIMER RUNNING")
+                     
+                     // We still consider practice to be happening during grace period
+                     // So we keep the status as "Practicing"
+                     DetectionStateHolder.updateState(newStatus = "Practicing")
+                 } else {
+                     // We're already in grace period, check if 8 seconds passed
+                     val silenceDuration = now - lastMusicDetectionTimeMillis
+                     if (silenceDuration >= NON_PRACTICE_INTERVAL_MS) {
+                         // Grace period over, stop the timer
+                         val elapsedMillis = now - musicStartTimeMillis
+                         if (elapsedMillis > 0) {
+                             accumulatedTimeMillis += elapsedMillis
+                         }
+                         isMusicCurrentlyPlaying = false
+                         musicStartTimeMillis = 0L
+                         val status = "" // Empty string when not practicing
+                         Log.i(TAG, "GRACE PERIOD EXPIRED: No music for ${silenceDuration}ms (${NON_PRACTICE_INTERVAL_MS}ms threshold). " +
+                                 "Practice stopped. Added ${elapsedMillis}ms. Total: ${accumulatedTimeMillis}ms")
+                         DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
+                     } else {
+                         // Still in grace period, CONTINUE counting as practice
+                         Log.i(TAG, "WITHIN GRACE PERIOD: Silence for ${silenceDuration}ms out of ${NON_PRACTICE_INTERVAL_MS}ms - KEEPING TIMER RUNNING")
+                         
+                         // Critical: Keep showing practicing status during grace period
+                         DetectionStateHolder.updateState(newStatus = "Practicing")
+                     }
+                 }
+             } else {
+                 // Already not playing, just update state
+                 val status = "" // Empty string when not practicing
+                 Log.d(TAG, "No practice detected - Timer stopped")
+                 DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
+             }
          }
      }
 
