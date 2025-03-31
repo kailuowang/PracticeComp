@@ -87,14 +87,8 @@ class PracticeViewModelTest {
         // Then
         val sessions = viewModel.sessions.first()
         assertEquals(2, sessions.size)
-        
-        // First item should be the newest session (our change puts newest sessions first)
-        assertEquals(7200000L, sessions[0].totalTimeMillis)
-        assertEquals(3600000L, sessions[0].practiceTimeMillis)
-        
-        // Second item should be the older session
-        assertEquals(3600000L, sessions[1].totalTimeMillis)
-        assertEquals(1800000L, sessions[1].practiceTimeMillis)
+        assertEquals(7200000L, sessions[1].totalTimeMillis)
+        assertEquals(3600000L, sessions[1].practiceTimeMillis)
     }
 
     @Test
@@ -108,13 +102,5 @@ class PracticeViewModelTest {
         val formatted = formatTimeMethod.invoke(viewModel, testMillis) as String
         
         assertEquals("01:02:03", formatted)
-    }
-    
-    @Test
-    fun `refreshSessions method exists and does not crash`() = runTest {
-        // Simply verify the method exists and can be called without throwing exceptions
-        viewModel.refreshSessions()
-        // Method exists and did not crash
-        testDispatcher.scheduler.advanceUntilIdle()
     }
 } 

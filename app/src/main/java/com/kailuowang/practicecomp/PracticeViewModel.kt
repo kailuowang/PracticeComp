@@ -88,16 +88,33 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         
         Log.d("PracticeViewModel", "Saving session - Total: ${newSession.getFormattedTotalTime()}, Practice: ${newSession.getFormattedPracticeTime()}")
         
-        // Update state directly to handle both test and production environments
-        val currentSessions = _sessions.value
-        val updatedSessions = listOf(newSession) + currentSessions
-        _sessions.value = updatedSessions
-        
-        Log.d("PracticeViewModel", "Session saved - Current sessions count: ${updatedSessions.size}")
-        
-        // Save to SharedPreferences in a background thread
-        viewModelScope.launch(Dispatchers.IO) {
-            saveSessionsToPrefs(updatedSessions)
+        // Save immediately to both memory and SharedPreferences
+        saveSessionImmediate(newSession)
+    }
+    
+    // Synchronously save session to both memory and SharedPreferences
+    private fun saveSessionImmediate(newSession: PracticeSession) {
+        try {
+            // Update in-memory list
+            val currentSessions = _sessions.value
+            val updatedSessions = listOf(newSession) + currentSessions
+            _sessions.value = updatedSessions
+            
+            // Convert to JSON for SharedPreferences
+            val jsonArray = JSONArray()
+            updatedSessions.forEach { session ->
+                val jsonObject = sessionToJson(session)
+                jsonArray.put(jsonObject)
+            }
+            
+            // Get editor and commit changes synchronously
+            val editor = sharedPrefs.edit()
+            editor.putString(PREF_KEY_SESSIONS, jsonArray.toString())
+            val success = editor.commit() // Use commit for immediate synchronous saving
+            
+            Log.d("PracticeViewModel", "Session saved - Success: $success, Total sessions: ${updatedSessions.size}")
+        } catch (e: Exception) {
+            Log.e("PracticeViewModel", "Error saving session", e)
         }
     }
     
@@ -115,13 +132,10 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                         loadedSessions.add(session)
                     }
                     
-                    // Sort sessions by date in reverse order (newest first)
-                    val sortedSessions = loadedSessions.sortedByDescending { it.date }
-                    
-                    Log.d("PracticeViewModel", "Loaded ${sortedSessions.size} saved sessions")
+                    Log.d("PracticeViewModel", "Loaded ${loadedSessions.size} saved sessions")
                     
                     withContext(Dispatchers.Main) {
-                        _sessions.value = sortedSessions
+                        _sessions.value = loadedSessions
                     }
                 } catch (e: Exception) {
                     Log.e("PracticeViewModel", "Error loading saved sessions", e)
@@ -129,30 +143,6 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             } else {
                 Log.d("PracticeViewModel", "No saved sessions found")
             }
-        }
-    }
-    
-    private fun saveSessionsToPrefs(sessionsList: List<PracticeSession>) {
-        try {
-            val jsonArray = JSONArray()
-            sessionsList.forEach { session ->
-                val jsonObject = sessionToJson(session)
-                jsonArray.put(jsonObject)
-            }
-            
-            val editor = sharedPrefs.edit()
-            editor.putString(PREF_KEY_SESSIONS, jsonArray.toString())
-            
-            // Use commit() instead of apply() to ensure immediate synchronous saving
-            val success = editor.commit()
-            
-            if (success) {
-                Log.d("PracticeViewModel", "Successfully saved ${sessionsList.size} sessions to SharedPreferences")
-            } else {
-                Log.e("PracticeViewModel", "Failed to save sessions to SharedPreferences")
-            }
-        } catch (e: Exception) {
-            Log.e("PracticeViewModel", "Error saving sessions to SharedPreferences", e)
         }
     }
     
@@ -184,6 +174,43 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun updateTotalSessionTime() {
         // This is primarily handled by the service through DetectionStateHolder,
         // but we could add additional logic here if needed
+    }
+
+    // Public method to refresh sessions from SharedPreferences
+    fun refreshSessions() {
+        Log.d("PracticeViewModel", "Refreshing sessions from SharedPreferences")
+        try {
+            // Load synchronously on the main thread to ensure immediate UI update
+            val sessionsJson = sharedPrefs.getString(PREF_KEY_SESSIONS, null)
+            Log.d("PracticeViewModel", "Raw JSON from SharedPreferences: ${sessionsJson?.take(100)}...")
+            
+            if (!sessionsJson.isNullOrEmpty()) {
+                val loadedSessions = mutableListOf<PracticeSession>()
+                try {
+                    val jsonArray = JSONArray(sessionsJson)
+                    Log.d("PracticeViewModel", "JSON array length: ${jsonArray.length()}")
+                    
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        val session = jsonToSession(jsonObject)
+                        loadedSessions.add(session)
+                    }
+                    
+                    // Sort sessions by date in reverse order (newest first)
+                    val sortedSessions = loadedSessions.sortedByDescending { it.date }
+                    Log.d("PracticeViewModel", "Loaded ${sortedSessions.size} saved sessions")
+                    
+                    // Update the state
+                    _sessions.value = sortedSessions
+                } catch (e: Exception) {
+                    Log.e("PracticeViewModel", "Error parsing session JSON", e)
+                }
+            } else {
+                Log.d("PracticeViewModel", "No saved sessions found in SharedPreferences")
+            }
+        } catch (e: Exception) {
+            Log.e("PracticeViewModel", "Error refreshing sessions", e)
+        }
     }
 
     // TODO: Add methods to start/stop session, update timer, etc.

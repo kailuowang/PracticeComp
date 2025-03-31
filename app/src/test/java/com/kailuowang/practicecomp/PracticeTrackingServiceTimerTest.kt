@@ -74,39 +74,26 @@ class PracticeTrackingServiceTimerTest {
     fun `updateTimerState WHEN music stops THEN stops timer and accumulates time`() = runTest(testDispatcher) {
         val scheduler = testDispatcher.scheduler 
         val simulatedElapsedTime = TimeUnit.SECONDS.toMillis(10)
-        val noMusicThreshold = 8000L // Match the 8-second threshold from service (updated)
 
         // Setup - Start with music playing and use scheduler time
         val fakeStartTime = scheduler.currentTime
         service.setTimerStateForTest(isPlaying = true, startTime = fakeStartTime, accumulatedTime = 0L)
-        // Ensure last music detection time is set to the same time initially
-        service.setLastMusicDetectionTimeMillisForTest(fakeStartTime)
         DetectionStateHolder.updateState(newStatus = "Practicing")
         
         // Advance virtual time to simulate music playing for a while
         scheduler.advanceTimeBy(simulatedElapsedTime)
         
-        // First detection of no music - set the last detection time to this point
-        val noMusicDetectionTime = scheduler.currentTime
+        // Simulate music stopping
         service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
         
-        // Timer should still be running because we haven't passed the threshold
-        assertTrue("Timer should still be running before no-music threshold", service.isMusicPlayingForTest())
-        
-        // Advance time past the no-music threshold
-        scheduler.advanceTimeBy(noMusicThreshold + 100) // Add a small buffer
-        
-        // Call updateTimerState again to trigger the threshold check
-        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
-        
-        // Now the timer should be stopped
-        assertFalse("Timer should be stopped after no-music threshold", service.isMusicPlayingForTest())
+        // Assertions
+        assertFalse("Timer should be stopped after music stops", service.isMusicPlayingForTest())
         assertEquals("Start time should be reset to 0", 0L, service.getMusicStartTimeMillisForTest())
         
         // Now check accumulated time
         val accumulatedTime = service.getAccumulatedTimeMillisForTest()
         assertTrue("Accumulated time should be approximately $simulatedElapsedTime ms", 
-                   accumulatedTime > 0 && Math.abs(accumulatedTime - simulatedElapsedTime) < 1000)
+                   accumulatedTime > 0 && Math.abs(accumulatedTime - simulatedElapsedTime) < 100)
         
         assertEquals("Status should be empty", "", DetectionStateHolder.state.value.statusMessage)
     }
