@@ -2,61 +2,31 @@ package com.kailuowang.practicecomp
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
-// Represents the state for the instrument selection and active session
+// Represents the state for the active session
 data class PracticeUiState(
-    val availableInstruments: List<String> = listOf("Piano", "Cello", "Violin", "Clarinet"),
-    val selectedInstrument: String? = null, // Instrument chosen in the current selection flow
-    val defaultInstrument: String? = null   // Last confirmed instrument
+    val isSessionActive: Boolean = false,
+    val detectionStatus: String = "Idle"
 )
 
 class PracticeViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(PracticeUiState())
-    val uiState: StateFlow<PracticeUiState> = _uiState.asStateFlow()
-
-    init {
-        // Initialize selected instrument with the default when ViewModel is created
-        // In a real app, you might load the default from SharedPreferences here
-        _uiState.update { currentState ->
-            currentState.copy(selectedInstrument = currentState.defaultInstrument)
+    // Combine detection status into the main UI state
+    val uiState: StateFlow<PracticeUiState> = DetectionStateHolder.detectionStatus
+        .map { status ->
+            PracticeUiState(detectionStatus = status)
+            // TODO: Combine with other state like isSessionActive when needed
         }
-    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PracticeUiState() // Initial state
+        )
 
-    /**
-     * Updates the temporarily selected instrument during the selection process.
-     */
-    fun selectInstrument(instrument: String) {
-        _uiState.update { currentState ->
-            currentState.copy(selectedInstrument = instrument)
-        }
-    }
+    // TODO: Add methods to start/stop session, update timer, etc.
 
-    /**
-     * Confirms the selected instrument, making it the default for the next session,
-     * and potentially readying it for the active session screen.
-     */
-    fun confirmInstrumentSelection() {
-        // The currently selected instrument becomes the new default
-        val confirmedInstrument = _uiState.value.selectedInstrument
-        _uiState.update { currentState ->
-            currentState.copy(defaultInstrument = confirmedInstrument)
-        }
-        // In a real app, you would save the confirmedInstrument to SharedPreferences here
-    }
-
-    /**
-     * Resets the selection state, e.g., when navigating away from selection screen
-     * without confirming. Sets selection back to the last confirmed default.
-     */
-     fun resetSelectionToDefault() {
-         _uiState.update { currentState ->
-             currentState.copy(selectedInstrument = currentState.defaultInstrument)
-         }
-     }
 } 

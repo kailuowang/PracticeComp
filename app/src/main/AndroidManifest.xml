@@ -2,6 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissions for audio recording and foreground service -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Required for starting foreground services (Android 9+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Required for microphone type FGS (Android 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Required for foreground service notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -23,6 +32,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Declare the foreground service -->
+        <service
+            android:name=".PracticeTrackingService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+
     </application>
 
 </manifest>

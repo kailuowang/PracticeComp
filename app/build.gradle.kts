@@ -54,6 +54,11 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.generativeai)
     implementation(libs.androidx.navigation.compose)
+    
+    // Add TensorFlow Lite for audio classification
+    implementation("org.tensorflow:tensorflow-lite-task-audio:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
