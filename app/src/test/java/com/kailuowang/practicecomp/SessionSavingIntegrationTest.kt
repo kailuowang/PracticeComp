@@ -17,7 +17,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
-import org.mockito.Mockito.`when`
+import org.mockito.Mockito
 import org.mockito.junit.MockitoJUnitRunner
 import org.mockito.kotlin.any
 import org.robolectric.RobolectricTestRunner
@@ -61,11 +61,11 @@ class SessionSavingIntegrationTest {
         // Set up ShadowLog to redirect Android Log calls to System.out
         ShadowLog.stream = System.out
         
-        // Mock SharedPreferences
-        `when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
-        `when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
-        `when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
-        `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
+        // Mock SharedPreferences using lenient() to avoid UnnecessaryStubbingException
+        Mockito.lenient().`when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
+        Mockito.lenient().`when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
+        Mockito.lenient().`when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
+        Mockito.lenient().`when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
         
         Dispatchers.setMain(testDispatcher)
         testClock = TestClock()

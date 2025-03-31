@@ -3,6 +3,7 @@ package com.kailuowang.practicecomp
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -16,11 +17,12 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
-import org.mockito.Mockito.`when`
+import org.mockito.Mockito
 import org.mockito.junit.MockitoJUnitRunner
 import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 @ExperimentalCoroutinesApi
 @RunWith(MockitoJUnitRunner::class)
@@ -40,14 +42,13 @@ class PracticeViewModelTest {
 
     @Before
     fun setup() {
+        // Mock SharedPreferences using lenient() to avoid UnnecessaryStubbingException
+        Mockito.lenient().`when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
+        Mockito.lenient().`when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
+        Mockito.lenient().`when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
+        Mockito.lenient().`when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
+        
         Dispatchers.setMain(testDispatcher)
-        
-        // Mock SharedPreferences
-        `when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
-        `when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
-        `when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
-        `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
-        
         viewModel = PracticeViewModel(mockApplication)
         
         // Reset the state holder before each test
