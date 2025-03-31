@@ -4,13 +4,16 @@ This document outlines the planned and potential features for the Practice Compa
 
 ## Core Features (MVP)
 
-*   [ ] **Diary of Practice:**  
-    *  [ ] **Start:**  User can start a practice session
+*   [x] **Diary of Practice:**  
+    *  [x] **Start:**  User can start a practice session
     *  [ ] **Instrument Specification:** User specifies their primary instrument to improve detection accuracy for automatic practice log (see below).
-    *  [ ] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
-    *  [ ] **Accumulative play time display:** Display the accumulative play time for the current session in real time
-    *  [ ] **End:**  User can end a practice session 
-    *  [ ] **List of Practice Sessions:**  For each session, display the total wall clock time and play time. 
+    *  [x] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
+    *  [x] **Accumulative play time display:** Display the accumulative play time for the current session in real time
+    *  [x] **End:**  User can end a practice session 
+    *  [x] **List of Practice Sessions:**  For each session, display the total wall clock time and play time. 
+    *  [x] **Smart Pause Detection:** Continues tracking practice time during brief pauses (less than 8 seconds) to accommodate page turns, brief rests, etc.
+    *  [x] **Background Session Tracking:** Practice sessions continue tracking even when the app is minimized or the screen is off, allowing for uninterrupted practice.
+    *  [x] **Session Resume:** When a session is running in the background, users can easily return to it from the main screen via a banner notification.
 
 
 
@@ -30,3 +33,5 @@ This document outlines the planned and potential features for the Practice Compa
 *   [ ] **Scale/Arpeggio Library:** Visual and auditory reference for scales and arpeggios.
 *   [ ] Gamification elements (streaks, points).
 *   [ ] AI-powered feedback on intonation/rhythm. 
+*   [ ] **Enhanced Notification Controls:** Add ability to control the practice session (pause/resume/end) directly from the notification.
+*   [ ] **Practice Stats Dashboard:** Detailed analytics of practice habits, including time of day, duration patterns, and consistency metrics. 
