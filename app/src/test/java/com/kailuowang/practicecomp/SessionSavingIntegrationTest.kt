@@ -183,14 +183,14 @@ class SessionSavingIntegrationTest {
         val sessions = viewModel.sessions.first()
         assertEquals(2, sessions.size)
         
-        // Check first session values
-        assertEquals(1800000L, sessions[0].totalTimeMillis)
-        assertEquals(900000L, sessions[0].practiceTimeMillis)
-        assertEquals(50, sessions[0].getPracticePercentage())
+        // Second session (newest) should be first in the list now
+        assertEquals(3600000L, sessions[0].totalTimeMillis)
+        assertEquals(2700000L, sessions[0].practiceTimeMillis)
+        assertEquals(75, sessions[0].getPracticePercentage())
         
-        // Check second session values
-        assertEquals(3600000L, sessions[1].totalTimeMillis)
-        assertEquals(2700000L, sessions[1].practiceTimeMillis)
-        assertEquals(75, sessions[1].getPracticePercentage())
+        // First session (older) should be second in the list
+        assertEquals(1800000L, sessions[1].totalTimeMillis)
+        assertEquals(900000L, sessions[1].practiceTimeMillis)
+        assertEquals(50, sessions[1].getPracticePercentage())
     }
 } 

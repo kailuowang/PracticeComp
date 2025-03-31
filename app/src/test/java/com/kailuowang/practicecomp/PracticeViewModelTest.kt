@@ -87,8 +87,14 @@ class PracticeViewModelTest {
         // Then
         val sessions = viewModel.sessions.first()
         assertEquals(2, sessions.size)
-        assertEquals(7200000L, sessions[1].totalTimeMillis)
-        assertEquals(3600000L, sessions[1].practiceTimeMillis)
+        
+        // First item should be the newest session (our change puts newest sessions first)
+        assertEquals(7200000L, sessions[0].totalTimeMillis)
+        assertEquals(3600000L, sessions[0].practiceTimeMillis)
+        
+        // Second item should be the older session
+        assertEquals(3600000L, sessions[1].totalTimeMillis)
+        assertEquals(1800000L, sessions[1].practiceTimeMillis)
     }
 
     @Test
