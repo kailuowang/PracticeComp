@@ -3,53 +3,94 @@ package com.kailuowang.practicecomp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.kailuowang.practicecomp.ui.theme.PracticeCompTheme
+
+// Define navigation routes
+object AppDestinations {
+    const val PRACTICE_LIST = "practiceList"
+    const val INSTRUMENT_SELECTION = "instrumentSelection"
+    const val PRACTICE_SESSION = "practiceSession"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             PracticeCompTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    PracticeListScreen()
-                }
+                PracticeApp() // Main app composable with navigation
             }
         }
     }
 }
 
-// Define the new screen composable
+// Main app composable managing navigation
+@Composable
+fun PracticeApp(
+    navController: NavHostController = rememberNavController(),
+    practiceViewModel: PracticeViewModel = viewModel()
+) {
+    NavHost(
+        navController = navController,
+        startDestination = AppDestinations.PRACTICE_LIST,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable(route = AppDestinations.PRACTICE_LIST) {
+            PracticeListScreen(
+                onStartPracticeClick = { navController.navigate(AppDestinations.INSTRUMENT_SELECTION) }
+            )
+        }
+        composable(route = AppDestinations.INSTRUMENT_SELECTION) {
+            InstrumentSelectionScreen(
+                viewModel = practiceViewModel,
+                onNavigateBack = {
+                    practiceViewModel.resetSelectionToDefault()
+                    navController.popBackStack()
+                 },
+                onConfirm = {
+                    practiceViewModel.confirmInstrumentSelection()
+                    navController.navigate(AppDestinations.PRACTICE_SESSION) {
+                        popUpTo(AppDestinations.INSTRUMENT_SELECTION) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(route = AppDestinations.PRACTICE_SESSION) {
+            PracticeSessionScreen(
+                viewModel = practiceViewModel,
+                onNavigateBack = { navController.popBackStack(AppDestinations.PRACTICE_LIST, inclusive = false) }
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PracticeListScreen(modifier: Modifier = Modifier) {
+fun PracticeListScreen(
+    onStartPracticeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Practice Diary") }, // TODO: Replace with string resource
+                title = { Text("Practice Diary") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -57,34 +98,176 @@ fun PracticeListScreen(modifier: Modifier = Modifier) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* TODO: Handle start practice session click */ }) {
-                Icon(Icons.Filled.Add, contentDescription = "Start new practice session") // TODO: Replace with string resource
+            FloatingActionButton(onClick = onStartPracticeClick) {
+                Icon(Icons.Filled.Add, contentDescription = "Start new practice session")
             }
         }
     ) { innerPadding ->
-        // Placeholder for the list of practice sessions
         Box(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text("Practice sessions will appear here.") // TODO: Replace with actual list
+            Text("Practice sessions will appear here.")
         }
     }
 }
 
-// Add a Preview for PracticeListScreen
+// New screen for selecting the instrument
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InstrumentSelectionScreen(
+    viewModel: PracticeViewModel,
+    onNavigateBack: () -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Select Instrument") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                     containerColor = MaterialTheme.colorScheme.primaryContainer,
+                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                 )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(16.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                 Text("Choose your instrument for this session:", style = MaterialTheme.typography.titleMedium)
+                 Spacer(modifier = Modifier.height(16.dp))
+                 uiState.availableInstruments.forEach { instrument ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .selectable(
+                                selected = (instrument == uiState.selectedInstrument),
+                                onClick = { viewModel.selectInstrument(instrument) },
+                                role = Role.RadioButton
+                            )
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (instrument == uiState.selectedInstrument),
+                            onClick = null
+                        )
+                        Text(
+                            text = instrument,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = onConfirm,
+                enabled = uiState.selectedInstrument != null,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Confirm")
+            }
+        }
+    }
+}
+
+// Screen for the active practice session
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PracticeSessionScreen(
+    viewModel: PracticeViewModel,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Practice Session") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(16.dp)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("Instrument: ${uiState.defaultInstrument ?: "Not Selected"}")
+            Spacer(modifier = Modifier.height(20.dp))
+            Text("Timer and other session details will go here.")
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PracticeListScreenPreview() {
     PracticeCompTheme {
-        PracticeListScreen()
+        PracticeListScreen(onStartPracticeClick = {})
     }
 }
 
-// Remove or comment out the old BakingScreen if it's no longer needed
-// @Composable
-// fun BakingScreen(modifier: Modifier = Modifier) { ... }
-// @Preview(...)
-// fun BakingScreenPreview() { ... }
+@Preview(showBackground = true, name = "Instrument Selection")
+@Composable
+fun InstrumentSelectionScreenPreview() {
+    PracticeCompTheme {
+        val dummyViewModel = PracticeViewModel()
+        InstrumentSelectionScreen(
+            viewModel = dummyViewModel,
+            onNavigateBack = {},
+            onConfirm = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Practice Session")
+@Composable
+fun PracticeSessionScreenPreview() {
+    PracticeCompTheme {
+        val dummyViewModel = PracticeViewModel()
+        PracticeSessionScreen(
+             viewModel = dummyViewModel,
+             onNavigateBack = {}
+        )
+    }
+}
