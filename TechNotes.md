@@ -2,48 +2,57 @@
 
 This document outlines the technical approach and considerations for implementing the automatic detection of music playing time in a background process.
 
-## High-Level Approach (Prioritizing SoundClassifier)
+## High-Level Approach (Using TensorFlow Lite AudioClassifier)
 
 1.  **Background Service:** A foreground service is required to reliably capture and process audio when the app is not in the foreground. This service will display a persistent notification.
-2.  **Audio Capture:** Utilize Android's `AudioRecord` API to access the microphone input stream.
-3.  **Audio Classification (Primary Method):**
-    *   Use Android's `SoundClassifier` API (part of `android.media`).
-    *   Feed audio buffers captured by `AudioRecord` into the `AudioClassifier`.
-    *   The classifier will use a system-provided (or potentially a custom, if needed later) model to identify sound events.
-    *   Monitor the classification results for the **"Music"** category.
+2.  **Audio Capture:** Utilize TensorFlow Lite's `AudioRecord` wrapper to access the microphone input stream.
+3.  **Audio Classification:**
+    *   Use TensorFlow Lite's `AudioClassifier` API with the YAMNet pre-trained model.
+    *   Feed audio buffers into the `AudioClassifier` using `TensorAudio`.
+    *   The YAMNet model can identify 521 different sound classes, including various music categories, instruments, and singing.
+    *   Monitor the classification results for music-related categories.
 4.  **Detection Logic:**
-    *   Define a confidence threshold for the "Music" classification.
-    *   Implement logic to determine when music playing starts (e.g., "Music" category consistently above threshold for X seconds) and stops (e.g., drops below threshold or another category dominates for Y seconds).
-5.  **Fallback/Alternative (If SoundClassifier is insufficient):**
-    *   **Signal Processing:** Use a library like TarsosDSP to analyze audio features directly (e.g., volume changes, spectral characteristics, onset detection) and build custom logic to identify musical activity.
-6.  **Logging:** When music playing is detected (via the chosen method), start/stop timers to log the duration accurately.
+    *   Define a confidence threshold for music-related classifications.
+    *   Filter classification results for music-related labels (e.g., "music", "instrument", "singing").
+    *   Implement logic to determine when music playing starts (e.g., music category consistently above threshold for X seconds) and stops (e.g., drops below threshold for Y seconds).
+5.  **Logging:** When music playing is detected, start/stop timers to log the duration accurately.
 
-## Key APIs and Libraries (Prioritized)
+## Key APIs and Libraries 
 
 *   **Core:**
     *   `android.app.Service` / `android.app.ForegroundService`
-    *   `android.media.AudioRecord`
-    *   `android.media.SoundClassifier` / `AudioClassifier`
+    *   `org.tensorflow.lite.task.audio.classifier.AudioClassifier`
+    *   `org.tensorflow.lite.support.audio.TensorAudio`
     *   `android.Manifest.permission.RECORD_AUDIO`
     *   `android.Manifest.permission.FOREGROUND_SERVICE`
     *   `android.Manifest.permission.POST_NOTIFICATIONS` (Android 13+)
-*   **Potential Fallback:**
-    *   TarsosDSP (for signal processing features if `SoundClassifier` fails)
+*   **Dependencies:**
+    *   `org.tensorflow:tensorflow-lite-task-audio:0.4.4`
+    *   `org.tensorflow:tensorflow-lite-support:0.4.4`
 
 ## Challenges and Considerations
 
-*   **Accuracy of `SoundClassifier`:** The reliability of the system's "Music" model in various environments (noise, multiple sound sources) is key. May require tuning detection logic (thresholds, timing). Misclassification (e.g., TV audio as music) is possible.
-*   **Battery Consumption:** Continuous audio processing is battery-intensive. `SoundClassifier` might offer some system optimizations, but monitoring and potential duty cycling strategies are still important.
-*   **API Level Requirements:** `SoundClassifier` works best on newer Android versions (S/API 31+). Consider compatibility and potential use of support libraries if targeting older versions.
-*   **Latency:** Delay between actual playing start/stop and detection by the classifier.
+*   **Accuracy of YAMNet Model:** The reliability of the model in various environments (noise, multiple sound sources) is key. May require tuning detection logic (thresholds, timing). Misclassification (e.g., TV audio as music) is possible.
+*   **Battery Consumption:** Continuous audio processing is battery-intensive. Consider implementing duty cycling to reduce power usage.
+*   **Model Size:** The YAMNet model is approximately 4MB, which adds to the app size but is relatively small for a neural network model.
+*   **Latency:** There may be some delay between actual playing start/stop and detection by the classifier.
 *   **Permissions:** User consent for microphone and foreground service is critical.
 *   **User Experience:** Clear feedback on when detection is active; reliable start/stop mechanism.
 
+## Implementation Details
+
+1.  **Service Structure:** `PracticeTrackingService` is implemented as a foreground service with a persistent notification.
+2.  **Detection Process:**
+    *   Initialize the TensorFlow Lite `AudioClassifier` with the YAMNet model.
+    *   Create an `AudioRecord` instance to capture audio from the microphone.
+    *   Schedule periodic processing (every 500ms) to classify the current audio.
+    *   Filter results to identify music-related sounds with a confidence threshold of 0.6.
+3.  **Status Updates:** Use `DetectionStateHolder` to communicate the current detection status to the UI.
+
 ## Next Steps
 
-1.  **Implement Foreground Service:** Set up the basic structure for a foreground service that requests necessary permissions.
-2.  **Integrate `AudioRecord`:** Add code to capture raw audio data within the service.
-3.  **Integrate `SoundClassifier`:** Instantiate `AudioClassifier` and start feeding it audio data.
-4.  **Develop Detection Logic:** Implement the logic to analyze `SoundClassifier` results for the "Music" category, applying thresholds and timing to trigger practice time logging.
-5.  **Testing:** Thoroughly test the detection accuracy in different scenarios (quiet room, noisy room, different types of music/instruments).
-6.  **Evaluate:** If accuracy is insufficient, investigate the fallback signal processing approach using TarsosDSP. 
+1.  **Refine Detection Logic:** Fine-tune thresholds and categories for better accuracy.
+2.  **Implement Practice Timer:** Add logic to track and persist practice session durations.
+3.  **Improve Notification:** Add dynamic text and controls to the foreground service notification.
+4.  **UI Integration:** Enhance the user interface to display practice stats and current status.
+5.  **Testing:** Thoroughly test the detection accuracy in different scenarios (quiet room, noisy room, different types of music/instruments). 
