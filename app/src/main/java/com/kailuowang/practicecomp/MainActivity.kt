@@ -116,7 +116,7 @@ fun PracticeSessionScreen(
     var isServiceRunning by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
 
-    // --- Permission Handling --- 
+    // --- Permission Handling ---
     val permissionsToRequest = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
@@ -124,29 +124,59 @@ fun PracticeSessionScreen(
             arrayOf(Manifest.permission.RECORD_AUDIO)
         }
     }
-    var hasPermissions by remember { mutableStateOf(false) } // Initially assume no permissions
+    var hasPermissions by remember { mutableStateOf(false) }
 
-    // Check initial permission status
-    LaunchedEffect(Unit) {
-        hasPermissions = permissionsToRequest.all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
+    // Permission Launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
-            hasPermissions = permissions.values.all { it } // Update based on grant results
-            if (hasPermissions) {
-                // Permissions granted, try starting service immediately if user intended
-                 if (!isServiceRunning) { startTrackingService(context); isServiceRunning = true }
+            val allGranted = permissions.values.all { it }
+            hasPermissions = allGranted
+            if (allGranted) {
+                Log.d("PracticeSessionScreen", "Permissions granted by user.")
+                if (!isServiceRunning) {
+                   startTrackingService(context)
+                   isServiceRunning = true
+                }
             } else {
-                // TODO: Show rationale or message if permissions are denied
-                Log.w("PracticeSessionScreen", "Required permissions not granted.")
+                Log.w("PracticeSessionScreen", "Required permissions were denied.")
+                onNavigateBack()
             }
         }
     )
-    // --- End Permission Handling ---
+
+    // Effect to check permissions and start service on initial composition or when permissions change
+    LaunchedEffect(key1 = hasPermissions) {
+        val allCurrentlyGranted = permissionsToRequest.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        hasPermissions = allCurrentlyGranted
+
+        if (allCurrentlyGranted) {
+            Log.d("PracticeSessionScreen", "Permissions already granted.")
+            if (!isServiceRunning) {
+                startTrackingService(context)
+                isServiceRunning = true
+            }
+        } else {
+            if (!hasPermissions) {
+                 Log.d("PracticeSessionScreen", "Requesting permissions...")
+                 permissionLauncher.launch(permissionsToRequest)
+            }
+        }
+    }
+
+    // Effect to stop the service when the composable is disposed (leaves the screen)
+    DisposableEffect(Unit) {
+        onDispose {
+            Log.d("PracticeSessionScreen", "Disposing PracticeSessionScreen.")
+            if (isServiceRunning) {
+                Log.d("PracticeSessionScreen", "Stopping service on dispose.")
+                stopTrackingService(context)
+            }
+        }
+    }
+    // --- End Permission and Lifecycle Handling ---
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -155,11 +185,6 @@ fun PracticeSessionScreen(
                 title = { Text("Practice Session") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // Ensure service is stopped if user navigates back while running
-                        if (isServiceRunning) {
-                           stopTrackingService(context)
-                           isServiceRunning = false
-                        }
                         onNavigateBack()
                     }) {
                         Icon(
@@ -194,26 +219,10 @@ fun PracticeSessionScreen(
             Text("Timer and other session details will go here.")
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Start/Stop Tracking Buttons
             if (isServiceRunning) {
-                Button(onClick = {
-                    stopTrackingService(context)
-                    isServiceRunning = false
-                }) {
-                    Text("Stop Tracking")
-                }
-            } else {
-                Button(onClick = {
-                    // Check permissions before starting
-                    if (hasPermissions) {
-                        startTrackingService(context)
-                        isServiceRunning = true
-                    } else {
-                        permissionLauncher.launch(permissionsToRequest)
-                    }
-                }) {
-                    Text("Start Tracking")
-                }
+                 Text("Monitoring active...", style = MaterialTheme.typography.bodyMedium)
+            } else if (!hasPermissions) {
+                 Text("Waiting for permissions...", style = MaterialTheme.typography.bodyMedium)
             }
             // TODO: Display tracking status/detected time
         }

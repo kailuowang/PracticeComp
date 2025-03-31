@@ -26,19 +26,38 @@ class NavigationAndSessionFlowTest {
 
     @Test
     fun navigate_fromList_toSession_andBack() {
-        // 1. Start on List screen, verify placeholder
+        // 1. Wait for the initial List screen to be ready and verify placeholder
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+             composeTestRule
+                .onAllNodesWithText(practiceListPlaceholderText)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(practiceListPlaceholderText).assertIsDisplayed()
+        // composeTestRule.waitForIdle() // Potentially redundant after waitUntil
 
         // 2. Click FAB
         composeTestRule.onNodeWithContentDescription(startPracticeButtonDesc).performClick()
+        composeTestRule.waitForIdle() // Wait after click for navigation
 
-        // 3. Verify Session screen is displayed (check title)
+        // 3. Wait for Session screen to display and verify title
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+             composeTestRule
+                .onAllNodesWithText(practiceSessionTitle)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(practiceSessionTitle).assertIsDisplayed()
+        // composeTestRule.waitForIdle() // Potentially redundant after waitUntil
 
         // 4. Click Back button
         composeTestRule.onNodeWithContentDescription(backButtonDesc).performClick()
+        composeTestRule.waitForIdle() // Wait after click for navigation
 
-        // 5. Verify back on List screen
+        // 5. Wait for List screen to reappear and verify placeholder
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+             composeTestRule
+                .onAllNodesWithText(practiceListPlaceholderText)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(practiceListPlaceholderText).assertIsDisplayed()
     }
 }
