@@ -132,32 +132,5 @@ class PracticeViewModelTest {
         assertEquals("01:02:03", formatted)
     }
     
-    @Test
-    fun `deleteSession removes a session`() = runTest {
-        // Given - A ViewModel with a session to delete
-        val testSession = PracticeSession(
-            id = "test-session-id",
-            date = LocalDateTime.now(),
-            totalTimeMillis = 3600000L, // 1 hour
-            practiceTimeMillis = 1800000L // 30 minutes
-        )
-        
-        // Inject the session directly into the ViewModel
-        val sessionsField = PracticeViewModel::class.java.getDeclaredField("_sessions")
-        sessionsField.isAccessible = true
-        sessionsField.set(viewModel, kotlinx.coroutines.flow.MutableStateFlow(listOf(testSession)))
-        
-        // Verify the session was injected
-        assertEquals(1, viewModel.sessions.first().size)
-        
-        // When - Delete the session
-        viewModel.deleteSession("test-session-id")
-        
-        // Then - Verify the session was removed
-        assertEquals(0, viewModel.sessions.first().size)
-        
-        // Verify that SharedPreferences was updated
-        Mockito.verify(mockEditor).putString(Mockito.eq("saved_sessions"), Mockito.anyString())
-        Mockito.verify(mockEditor).commit()
-    }
+    // Note: The deleteSession functionality is tested in SessionDeletionTest
 } 
