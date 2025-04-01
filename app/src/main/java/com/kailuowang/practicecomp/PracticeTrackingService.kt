@@ -413,19 +413,25 @@ class PracticeTrackingService(
     }
 
     private fun createNotification(): Notification {
-        // Intent to open the MainActivity when notification is tapped
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        // Intent to open directly to the practice session screen when notification is tapped
+        val notificationIntent = Intent(this, MainActivity::class.java).apply {
+            // Add flags to clear any existing activities and start fresh
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            
+            // Add extra to indicate we want to go directly to the session screen
+            putExtra("navigate_to", AppDestinations.PRACTICE_SESSION)
+        }
+        
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0, notificationIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT // Ensure PendingIntent updates if MainActivity state changes
+            0, 
+            notificationIntent, 
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-
-        // TODO: Update content text dynamically based on DetectionStateHolder.state
-        // TODO: Add actions to stop the service from the notification
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Practice Companion")
-            .setContentText("Monitoring practice session...") // Generic text for now
+            .setContentText("Monitoring practice session...")
             // .setSmallIcon(R.drawable.ic_notification_icon) // Replace with your actual icon
             .setContentIntent(pendingIntent)
             .setOngoing(true) // Make it non-dismissable

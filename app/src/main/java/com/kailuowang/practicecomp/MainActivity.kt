@@ -49,16 +49,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             PracticeCompTheme {
-                PracticeApp()
+                PracticeApp(intent = intent)
             }
         }
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // The activity will be recomposed, and the new intent will be passed to PracticeApp
     }
 }
 
 @Composable
 fun PracticeApp(
     navController: NavHostController = rememberNavController(),
-    practiceViewModel: PracticeViewModel = viewModel()
+    practiceViewModel: PracticeViewModel = viewModel(),
+    intent: Intent? = null
 ) {
     // Simple session state to track
     val isReturningFromSession = remember { mutableStateOf(false) }
@@ -73,6 +80,21 @@ fun PracticeApp(
             Log.d("PracticeApp", "Returning to list screen from session, refreshing")
             practiceViewModel.refreshSessions()
             isReturningFromSession.value = false
+        }
+    }
+    
+    // Handle navigation from notification
+    LaunchedEffect(intent) {
+        intent?.getStringExtra("navigate_to")?.let { destination ->
+            if (destination == AppDestinations.PRACTICE_SESSION && 
+                currentRoute != AppDestinations.PRACTICE_SESSION) {
+                navController.navigate(destination) {
+                    // Pop up to the start destination to avoid building up a large stack
+                    popUpTo(AppDestinations.PRACTICE_LIST) { saveState = true }
+                    // Avoid multiple copies of the same destination on the back stack
+                    launchSingleTop = true
+                }
+            }
         }
     }
     
