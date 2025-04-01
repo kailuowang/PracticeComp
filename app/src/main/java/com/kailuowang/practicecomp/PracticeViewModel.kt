@@ -214,6 +214,36 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Delete a session by ID and update SharedPreferences
+    fun deleteSession(sessionId: String) {
+        try {
+            Log.d("PracticeViewModel", "Deleting session with ID: $sessionId")
+            
+            // Create a new list without the session to delete
+            val currentSessions = _sessions.value
+            val updatedSessions = currentSessions.filter { it.id != sessionId }
+            
+            // Update in-memory list
+            _sessions.value = updatedSessions
+            
+            // Save to SharedPreferences
+            val jsonArray = JSONArray()
+            updatedSessions.forEach { session ->
+                val jsonObject = sessionToJson(session)
+                jsonArray.put(jsonObject)
+            }
+            
+            // Get editor and commit changes synchronously
+            val editor = sharedPrefs.edit()
+            editor.putString(PREF_KEY_SESSIONS, jsonArray.toString())
+            val success = editor.commit() // Use commit for immediate synchronous saving
+            
+            Log.d("PracticeViewModel", "Session deleted - Success: $success, Remaining sessions: ${updatedSessions.size}")
+        } catch (e: Exception) {
+            Log.e("PracticeViewModel", "Error deleting session", e)
+        }
+    }
+
     // Returns the practice time for a specific date in milliseconds
     fun getPracticeDurationForDate(date: LocalDateTime): Long {
         val dateString = date.toLocalDate().toString()

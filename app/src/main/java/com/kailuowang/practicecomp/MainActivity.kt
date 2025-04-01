@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -173,18 +174,18 @@ fun PracticeListScreen(
                 )
             }
         }
-    ) { innerPadding ->
-        Column(
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(paddingValues)
         ) {
-            // Display banner for active background session
+            // Display notification banner if service is running in background
             if (isServiceRunning.value) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -196,11 +197,16 @@ fun PracticeListScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "You have an active practice session running in the background",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Column {
+                            Text(
+                                text = "Practice session active",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = "Session recording in background",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         Button(
                             onClick = onResumeSession,
                             colors = ButtonDefaults.buttonColors(
@@ -235,7 +241,10 @@ fun PracticeListScreen(
                         .fillMaxSize()
                 ) {
                     items(sessions) { session ->
-                        PracticeSessionItem(session = session)
+                        PracticeSessionItem(
+                            session = session,
+                            onDelete = { viewModel.deleteSession(session.id) }
+                        )
                     }
                 }
             }
@@ -244,7 +253,13 @@ fun PracticeListScreen(
 }
 
 @Composable
-fun PracticeSessionItem(session: PracticeSession, modifier: Modifier = Modifier) {
+fun PracticeSessionItem(
+    session: PracticeSession, 
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -258,16 +273,30 @@ fun PracticeSessionItem(session: PracticeSession, modifier: Modifier = Modifier)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = session.getFormattedDate(),
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = session.getFormattedStartTime(),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = session.getFormattedStartTime(),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    
+                    IconButton(onClick = { showDeleteConfirmation = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete session",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -299,6 +328,32 @@ fun PracticeSessionItem(session: PracticeSession, modifier: Modifier = Modifier)
                 modifier = Modifier.align(Alignment.End)
             )
         }
+    }
+    
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Practice Session") },
+            text = { Text("Are you sure you want to delete this practice session? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -529,7 +584,10 @@ fun PracticeSessionItemPreview() {
     )
     
     PracticeCompTheme {
-        PracticeSessionItem(session = sampleSession)
+        PracticeSessionItem(
+            session = sampleSession,
+            onDelete = {}
+        )
     }
 }
 
