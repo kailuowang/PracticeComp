@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -36,6 +37,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.kailuowang.practicecomp.ui.theme.PracticeCompTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Box
 
 // Define navigation routes
 object AppDestinations {
@@ -157,6 +164,33 @@ fun PracticeApp(
     }
 }
 
+@Composable
+fun FlashingDot(modifier: Modifier = Modifier) {
+    // Create an infinite transition for the pulsating animation
+    val infiniteTransition = rememberInfiniteTransition(label = "flashing")
+    
+    // Animate the alpha (opacity) between 0.3 and 1.0
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    
+    // The dot
+    Box(
+        modifier = modifier
+            .size(16.dp)
+            .background(
+                color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
+                shape = CircleShape
+            )
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PracticeListScreen(
@@ -204,13 +238,28 @@ fun PracticeListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onStartPracticeClick,
-                containerColor = MaterialTheme.colorScheme.primaryContainer
+                onClick = if (isServiceRunning.value) onResumeSession else onStartPracticeClick,
+                containerColor = if (isServiceRunning.value) 
+                    MaterialTheme.colorScheme.errorContainer 
+                else 
+                    MaterialTheme.colorScheme.primaryContainer
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Start new practice session"
-                )
+                if (isServiceRunning.value) {
+                    // Show flashing dot for ongoing session
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FlashingDot(modifier = Modifier.size(24.dp))
+                    }
+                } else {
+                    // Show add icon to start new session
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Start new practice session"
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -606,11 +655,29 @@ private fun stopTrackingService(context: android.content.Context) {
 
 // --- Previews ---
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, name = "List Screen - No Active Session")
 @Composable
 fun PracticeListScreenPreview() {
     PracticeCompTheme {
-        PracticeListScreen(onStartPracticeClick = {}, isBackgroundSessionActive = false, onResumeSession = {}, onCalendarClick = {})
+        PracticeListScreen(
+            onStartPracticeClick = {}, 
+            isBackgroundSessionActive = false, 
+            onResumeSession = {}, 
+            onCalendarClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "List Screen - With Active Session")
+@Composable
+fun PracticeListScreenWithActiveSessionPreview() {
+    PracticeCompTheme {
+        PracticeListScreen(
+            onStartPracticeClick = {}, 
+            isBackgroundSessionActive = true, 
+            onResumeSession = {}, 
+            onCalendarClick = {}
+        )
     }
 }
 
@@ -640,4 +707,5 @@ fun PracticeSessionScreenPreview() {
              onEndSession = {}
         )
     }
+}
 }
