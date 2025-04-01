@@ -216,14 +216,10 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     // Returns the practice time for a specific date in milliseconds
     fun getPracticeDurationForDate(date: LocalDateTime): Long {
-        val startOfDay = date.toLocalDate().atStartOfDay()
-        val endOfDay = date.toLocalDate().plusDays(1).atStartOfDay().minusNanos(1)
+        val dateString = date.toLocalDate().toString()
         
         // Log the date range and sessions being checked for debugging
-        Log.d("PracticeViewModel", "Checking for sessions between $startOfDay and $endOfDay")
-        _sessions.value.forEach { 
-            Log.d("PracticeViewModel", "Session: ${it.date}, practice time: ${it.practiceTimeMillis}")
-        }
+        Log.d("PracticeViewModel", "Checking for sessions on $dateString, total sessions: ${_sessions.value.size}")
         
         // Use date comparison on just the date part, not the full timestamp
         return _sessions.value
@@ -231,9 +227,11 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 it.date.toLocalDate() == date.toLocalDate()
             }
             .also { matchedSessions ->
-                Log.d("PracticeViewModel", "Found ${matchedSessions.size} sessions for ${date.toLocalDate()}")
-                matchedSessions.forEach {
-                    Log.d("PracticeViewModel", "Matched session: ${it.date}, practice time: ${it.practiceTimeMillis}")
+                if (matchedSessions.isNotEmpty()) {
+                    Log.d("PracticeViewModel", "Found ${matchedSessions.size} sessions for $dateString")
+                    matchedSessions.forEach {
+                        Log.d("PracticeViewModel", "Matched session: ${it.date}, practice time: ${it.practiceTimeMillis}, total time: ${it.totalTimeMillis}")
+                    }
                 }
             }
             .sumOf { it.practiceTimeMillis }

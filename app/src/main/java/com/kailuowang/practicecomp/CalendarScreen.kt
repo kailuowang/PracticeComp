@@ -46,8 +46,9 @@ fun PracticeCalendarScreen(
     LaunchedEffect(Unit) {
         Log.d("PracticeCalendarScreen", "Refreshing sessions on calendar screen launch")
         viewModel.refreshSessions()
-        // Short delay to ensure sessions are loaded
-        delay(100)
+        // Longer delay to ensure sessions are fully loaded
+        delay(300)
+        Log.d("PracticeCalendarScreen", "Sessions loaded, session count: ${viewModel.sessions.value.size}")
     }
     
     // Collect sessions to force recomposition when they change
@@ -194,6 +195,9 @@ fun MonthCalendar(
     viewModel: PracticeViewModel,
     sessions: List<PracticeSession>
 ) {
+    // Force recomposition when sessions change
+    val sessionsKey = sessions.size // This will force recomposition when the number of sessions changes
+    
     // Day of week labels
     val daysOfWeek = DayOfWeek.values()
     val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
@@ -255,8 +259,12 @@ fun MonthCalendar(
                             val date = selectedMonth.atDay(dayNumber)
                             val isCurrentDay = date == currentDate
                             
-                            // Calculate practice time for this day
-                            val practiceDuration = viewModel.getPracticeDurationForDate(date.atStartOfDay())
+                            // Calculate practice time for this day - force recomposition with sessions dependency
+                            val practiceDuration by remember(date, sessions) {
+                                val duration = viewModel.getPracticeDurationForDate(date.atStartOfDay())
+                                Log.d("MonthCalendar", "Recalculating day ${date.dayOfMonth}: Practice duration = $duration ms")
+                                mutableStateOf(duration)
+                            }
                             val hasPractice = practiceDuration > 0
                             
                             // Log for debugging
