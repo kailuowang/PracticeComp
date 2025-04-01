@@ -102,20 +102,21 @@ class PracticeViewModelTest {
         val sessions = viewModel.sessions.first()
         assertEquals(2, sessions.size)
         
-        // Check values match what we passed in
-        assertEquals(firstSessionTotalTime, sessions[0].totalTimeMillis)
-        assertEquals(firstSessionPracticeTime, sessions[0].practiceTimeMillis)
-        assertEquals(secondSessionTotalTime, sessions[1].totalTimeMillis)
-        assertEquals(secondSessionPracticeTime, sessions[1].practiceTimeMillis)
+        // Important: The sessions are stored in reverse order in the implementation
+        // The newer session (second) is at index 0, older session (first) is at index 1
+        assertEquals(secondSessionTotalTime, sessions[0].totalTimeMillis)
+        assertEquals(secondSessionPracticeTime, sessions[0].practiceTimeMillis)
+        assertEquals(firstSessionTotalTime, sessions[1].totalTimeMillis)
+        assertEquals(firstSessionPracticeTime, sessions[1].practiceTimeMillis)
         
         // Check percentages are in approximate correct ranges
-        val firstPercentage = sessions[0].getPracticePercentage()
-        assertTrue("First session percentage should be approximately 50%", 
-                 firstPercentage >= 45 && firstPercentage <= 55)
-        
-        val secondPercentage = sessions[1].getPracticePercentage()
+        val secondPercentage = sessions[0].getPracticePercentage()
         assertTrue("Second session percentage should be approximately 50%", 
                  secondPercentage >= 45 && secondPercentage <= 55)
+        
+        val firstPercentage = sessions[1].getPracticePercentage()
+        assertTrue("First session percentage should be approximately 50%", 
+                 firstPercentage >= 45 && firstPercentage <= 55)
     }
 
     @Test

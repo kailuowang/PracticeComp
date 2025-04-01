@@ -127,19 +127,17 @@ class SessionSavingIntegrationTest {
         val sessions = viewModel.sessions.first()
         assertEquals(2, sessions.size)
         
-        // Get the exact values that were saved
-        val savedFirstPracticeTime = sessions[0].practiceTimeMillis
-        val savedFirstTotalTime = sessions[0].totalTimeMillis
-        val savedSecondPracticeTime = sessions[1].practiceTimeMillis
-        val savedSecondTotalTime = sessions[1].totalTimeMillis
+        // Important: The sessions are stored in reverse order in the implementation
+        // with newer sessions at index 0 and older sessions at higher indices
         
-        // Check the percentages are still approximately correct
-        val firstPercentage = sessions[0].getPracticePercentage()
-        assertTrue("First session percentage should be approximately 50%", 
-                  firstPercentage >= 45 && firstPercentage <= 55)
-        
-        val secondPercentage = sessions[1].getPracticePercentage()
+        // Second session (newer) should be at index 0
+        val secondSessionPercentage = sessions[0].getPracticePercentage()
         assertTrue("Second session percentage should be approximately 75%", 
-                  secondPercentage >= 70 && secondPercentage <= 80)
+                  secondSessionPercentage >= 70 && secondSessionPercentage <= 80)
+        
+        // First session (older) should be at index 1
+        val firstSessionPercentage = sessions[1].getPracticePercentage()
+        assertTrue("First session percentage should be approximately 50%", 
+                  firstSessionPercentage >= 45 && firstSessionPercentage <= 55)
     }
 } 
