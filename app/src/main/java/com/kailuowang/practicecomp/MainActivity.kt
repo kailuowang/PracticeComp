@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 object AppDestinations {
     const val PRACTICE_LIST = "practiceList"
     const val PRACTICE_SESSION = "practiceSession"
+    const val PRACTICE_CALENDAR = "practiceCalendar"
 }
 
 class MainActivity : ComponentActivity() {
@@ -86,6 +88,9 @@ fun PracticeApp(
                 isBackgroundSessionActive = isBackgroundSessionActive.value,
                 onResumeSession = {
                     navController.navigate(AppDestinations.PRACTICE_SESSION)
+                },
+                onCalendarClick = {
+                    navController.navigate(AppDestinations.PRACTICE_CALENDAR)
                 }
             )
         }
@@ -102,6 +107,13 @@ fun PracticeApp(
                 }
             )
         }
+        composable(route = AppDestinations.PRACTICE_CALENDAR) {
+            PracticeCalendarScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
     }
 }
 
@@ -111,6 +123,7 @@ fun PracticeListScreen(
     onStartPracticeClick: () -> Unit,
     isBackgroundSessionActive: Boolean,
     onResumeSession: () -> Unit,
+    onCalendarClick: () -> Unit,
     viewModel: PracticeViewModel = viewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState()
@@ -138,7 +151,15 @@ fun PracticeListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onCalendarClick) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange, 
+                            contentDescription = "View Calendar"
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -495,7 +516,7 @@ private fun stopTrackingService(context: android.content.Context) {
 @Composable
 fun PracticeListScreenPreview() {
     PracticeCompTheme {
-        PracticeListScreen(onStartPracticeClick = {}, isBackgroundSessionActive = false, onResumeSession = {})
+        PracticeListScreen(onStartPracticeClick = {}, isBackgroundSessionActive = false, onResumeSession = {}, onCalendarClick = {})
     }
 }
 

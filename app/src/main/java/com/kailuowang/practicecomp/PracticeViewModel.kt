@@ -19,6 +19,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.YearMonth
 
 // Data class to represent the UI state derived from DetectionStateHolder
 data class PracticeUiState(
@@ -210,6 +211,44 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             }
         } catch (e: Exception) {
             Log.e("PracticeViewModel", "Error refreshing sessions", e)
+        }
+    }
+
+    // Returns the practice time for a specific date in milliseconds
+    fun getPracticeDurationForDate(date: LocalDateTime): Long {
+        val startOfDay = date.toLocalDate().atStartOfDay()
+        val endOfDay = date.toLocalDate().plusDays(1).atStartOfDay().minusNanos(1)
+        
+        return _sessions.value
+            .filter { it.date.isAfter(startOfDay) && it.date.isBefore(endOfDay) }
+            .sumOf { it.practiceTimeMillis }
+    }
+    
+    // Returns the practice time for an entire month in milliseconds
+    fun getPracticeDurationForMonth(yearMonth: YearMonth): Long {
+        val startOfMonth = yearMonth.atDay(1).atStartOfDay()
+        val endOfMonth = yearMonth.atEndOfMonth().plusDays(1).atStartOfDay().minusNanos(1)
+        
+        return _sessions.value
+            .filter { it.date.isAfter(startOfMonth) && it.date.isBefore(endOfMonth) }
+            .sumOf { it.practiceTimeMillis }
+    }
+    
+    // Returns the total practice time across all sessions in milliseconds
+    fun getLifetimePracticeDuration(): Long {
+        return _sessions.value.sumOf { it.practiceTimeMillis }
+    }
+    
+    // Formats a duration in milliseconds to a human-readable string (e.g., "2h 15m")
+    fun formatPracticeDuration(durationMillis: Long): String {
+        val hours = durationMillis / (1000 * 60 * 60)
+        val minutes = (durationMillis % (1000 * 60 * 60)) / (1000 * 60)
+        
+        return when {
+            hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
+            hours > 0 -> "${hours}h"
+            minutes > 0 -> "${minutes}m"
+            else -> "0m"
         }
     }
 

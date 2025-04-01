@@ -6,14 +6,15 @@ This document outlines the planned and potential features for the Practice Compa
 
 *   [x] **Diary of Practice:**  
     *  [x] **Start:**  User can start a practice session
-    *  [ ] **Instrument Specification:** User specifies their primary instrument to improve detection accuracy for automatic practice log (see below).
-    *  [x] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
+        *  [x] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
     *  [x] **Accumulative play time display:** Display the accumulative play time for the current session in real time
     *  [x] **End:**  User can end a practice session 
     *  [x] **List of Practice Sessions:**  For each session, display the total wall clock time and play time. 
     *  [x] **Smart Pause Detection:** Continues tracking practice time during brief pauses (less than 8 seconds) to accommodate page turns, brief rests, etc.
     *  [x] **Background Session Tracking:** Practice sessions continue tracking even when the app is minimized or the screen is off, allowing for uninterrupted practice.
     *  [x] **Session Resume:** When a session is running in the background, users can easily return to it from the main screen via a banner notification.
+    *  [x] **Dairy Calendar:** Display a Month Calendar, default to current month, but can navigate to older month, on each date, display the total practice time for that day, then also display a total practice time for the month and a total life time practice time. 
+
 
 
 
