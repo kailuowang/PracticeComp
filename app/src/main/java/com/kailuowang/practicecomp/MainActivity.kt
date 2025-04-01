@@ -11,6 +11,7 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -400,28 +401,36 @@ fun PracticeSessionScreen(
             )
             
             // Display Accumulated Practice Time
-            Text(
-                text = "Practice Time",
-                style = MaterialTheme.typography.labelLarge,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 4.dp)
-            )
+            ) {
+                Text(
+                    text = "Practice Time",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                
+                // Red dot indicator that shows when practicing
+                if (uiState.detectionStatus == "Practicing") {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.error,
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                    )
+                }
+            }
             Text(
                 text = uiState.formattedPracticeTime,
                 style = MaterialTheme.typography.displayMedium,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Display Detection Status only if it's not empty
-            if (uiState.detectionStatus.isNotEmpty()) {
-                Text(
-                    text = "Status: ${uiState.detectionStatus}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            } else {
-                // Add padding to maintain layout consistency
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // Remove the text status display and replace with spacer
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (isServiceRunning) {
                 Text("Monitoring active...", style = MaterialTheme.typography.bodyMedium)
