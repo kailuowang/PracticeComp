@@ -265,15 +265,26 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     
     // Formats a duration in milliseconds to a human-readable string (e.g., "2h 15m")
     fun formatPracticeDuration(durationMillis: Long): String {
-        val hours = durationMillis / (1000 * 60 * 60)
+        // Calculate days for very large durations
+        val days = durationMillis / (1000 * 60 * 60 * 24)
+        val hours = (durationMillis % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
         val minutes = (durationMillis % (1000 * 60 * 60)) / (1000 * 60)
         val seconds = (durationMillis % (1000 * 60)) / 1000
         
         return when {
-            hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
-            hours > 0 -> "${hours}h"
+            // Include days if more than 24 hours
+            days > 0 -> "${days}d ${hours}h ${minutes}m"
+            
+            // Show both hours and minutes when hours are present (even if minutes = 0)
+            hours > 0 -> "${hours}h ${minutes}m"
+            
+            // Just minutes when between 1-59 minutes
             minutes > 0 -> "${minutes}m"
+            
+            // Seconds when less than a minute
             seconds > 0 -> "${seconds}s"
+            
+            // Zero case
             else -> "0s"
         }
     }
