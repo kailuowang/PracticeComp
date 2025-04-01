@@ -708,4 +708,3 @@ fun PracticeSessionScreenPreview() {
         )
     }
 }
-}
