@@ -133,7 +133,7 @@ fun PracticeListScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Practice Diary (v:28efe2a)") },
+                title = { Text("Practice Diary") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -358,7 +358,7 @@ fun PracticeSessionScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Practice Session (v:28efe2a)") },
+                title = { Text("Practice Session") },
                 navigationIcon = {
                     IconButton(onClick = {
                         // Keep service running when navigating back
