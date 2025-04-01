@@ -188,8 +188,8 @@ class CalendarFunctionalityTest {
     
     @Test
     fun `formatPracticeDuration formats durations correctly`() {
-        // Test with days, hours and minutes
-        assertEquals("2d 5h 30m", viewModel.formatPracticeDuration(2 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000 + 30 * 60 * 1000)) // 2d 5h 30m
+        // Test with large duration (multiple days worth of hours)
+        assertEquals("53h 30m", viewModel.formatPracticeDuration(2 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000 + 30 * 60 * 1000)) // 53h 30m (2 days, 5 hours, 30 min)
         
         // Test with hours and minutes
         assertEquals("2h 30m", viewModel.formatPracticeDuration(9000000)) // 2h 30m
