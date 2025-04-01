@@ -69,14 +69,12 @@ android {
                 }
             }
             
-            // Allow Android APIs to be used without mocking
             isReturnDefaultValues = true
         }
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -89,7 +87,6 @@ dependencies {
     implementation(libs.generativeai)
     implementation(libs.androidx.navigation.compose)
     
-    // Add TensorFlow Lite for audio classification
     implementation("org.tensorflow:tensorflow-lite-task-audio:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     
@@ -111,6 +108,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Add Architecture Components testing
     testImplementation("androidx.arch.core:core-testing:2.2.0")
 }
