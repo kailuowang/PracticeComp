@@ -1,5 +1,6 @@
 package com.kailuowang.practicecomp
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -16,7 +17,15 @@ data class PracticeSession(
     
     // Display formatting methods
     fun getFormattedDate(): String {
-        return date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        val today = LocalDate.now()
+        val yesterday = today.minusDays(1)
+        val sessionDate = date.toLocalDate()
+        
+        return when (sessionDate) {
+            today -> "Today"
+            yesterday -> "Yesterday"
+            else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        }
     }
     
     fun getFormattedStartTime(): String {

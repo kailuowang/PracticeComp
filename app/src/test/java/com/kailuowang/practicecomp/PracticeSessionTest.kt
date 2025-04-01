@@ -2,6 +2,7 @@ package com.kailuowang.practicecomp
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -110,7 +111,53 @@ class PracticeSessionTest {
     }
     
     @Test
-    fun `getFormattedDate and getFormattedStartTime return expected format`() {
+    fun `getFormattedDate shows actual date for past dates`() {
+        // Given
+        val pastDate = LocalDateTime.now().minusDays(2) // More than yesterday
+        val session = PracticeSession(
+            date = pastDate
+        )
+        
+        // When
+        val formattedDate = session.getFormattedDate()
+        
+        // Then
+        val expectedDateFormat = pastDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        assertEquals(expectedDateFormat, formattedDate)
+    }
+    
+    @Test
+    fun `getFormattedDate shows Today for today's date`() {
+        // Given
+        val today = LocalDateTime.now()
+        val session = PracticeSession(
+            date = today
+        )
+        
+        // When
+        val formattedDate = session.getFormattedDate()
+        
+        // Then
+        assertEquals("Today", formattedDate)
+    }
+    
+    @Test
+    fun `getFormattedDate shows Yesterday for yesterday's date`() {
+        // Given
+        val yesterday = LocalDateTime.now().minusDays(1)
+        val session = PracticeSession(
+            date = yesterday
+        )
+        
+        // When
+        val formattedDate = session.getFormattedDate()
+        
+        // Then
+        assertEquals("Yesterday", formattedDate)
+    }
+    
+    @Test
+    fun `getFormattedStartTime returns expected format`() {
         // Given
         val fixedDateTime = LocalDateTime.of(2023, 5, 10, 14, 30)
         val session = PracticeSession(
@@ -118,14 +165,10 @@ class PracticeSessionTest {
         )
         
         // When
-        val formattedDate = session.getFormattedDate()
         val formattedTime = session.getFormattedStartTime()
         
-        // Then - Using a more flexible assertion since formatting depends on locale
-        val expectedDateFormat = fixedDateTime.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        // Then
         val expectedTimeFormat = fixedDateTime.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-        
-        assertEquals(expectedDateFormat, formattedDate)
         assertEquals(expectedTimeFormat, formattedTime)
     }
 } 
