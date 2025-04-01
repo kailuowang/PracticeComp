@@ -2,10 +2,12 @@ package com.kailuowang.practicecomp
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kailuowang.practicecomp.ui.theme.PracticeCompTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import java.time.LocalDate
@@ -15,6 +17,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+@RunWith(AndroidJUnit4::class)
 class CalendarScreenUITest {
 
     @get:Rule
@@ -36,9 +39,9 @@ class CalendarScreenUITest {
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
@@ -55,9 +58,9 @@ class CalendarScreenUITest {
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
@@ -82,9 +85,9 @@ class CalendarScreenUITest {
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
@@ -113,9 +116,9 @@ class CalendarScreenUITest {
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
@@ -151,22 +154,23 @@ class CalendarScreenUITest {
         sessionsFlow.value = sessions
         
         `when`(mockViewModel.sessions).thenReturn(sessionsFlow)
-        `when`(mockViewModel.getPracticeDurationForMonth(thisMonth.monthValue, thisMonth.year))
+        `when`(mockViewModel.getPracticeDurationForMonth(thisMonth))
             .thenReturn(monthlyDuration)
         `when`(mockViewModel.formatPracticeDuration(monthlyDuration)).thenReturn(formattedDuration)
         
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
         
         // Then
-        composeTestRule.onNodeWithText("Monthly Practice: $formattedDuration").assertIsDisplayed()
+        composeTestRule.onNodeWithText("This Month:").assertIsDisplayed()
+        composeTestRule.onNodeWithText(formattedDuration).assertIsDisplayed()
     }
     
     @Test
@@ -195,15 +199,16 @@ class CalendarScreenUITest {
         // When
         composeTestRule.setContent {
             PracticeCompTheme {
-                CalendarScreen(
-                    viewModel = mockViewModel,
-                    onBack = {}
+                PracticeCalendarScreen(
+                    onBackClick = {},
+                    viewModel = mockViewModel
                 )
             }
         }
         
         // Then
-        composeTestRule.onNodeWithText("Lifetime Total: $formattedDuration").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Lifetime Total:").assertIsDisplayed()
+        composeTestRule.onNodeWithText(formattedDuration).assertIsDisplayed()
     }
     
     private fun createMockSession(
@@ -212,8 +217,8 @@ class CalendarScreenUITest {
         practiceTimeMillis: Long
     ): PracticeSession {
         return PracticeSession(
-            date = date.format(DateTimeFormatter.ISO_LOCAL_DATE),
-            startTimeMillis = System.currentTimeMillis(),
+            id = System.currentTimeMillis().toString(),
+            date = date.atStartOfDay(), // Convert LocalDate to LocalDateTime
             totalTimeMillis = totalTimeMillis,
             practiceTimeMillis = practiceTimeMillis
         )

@@ -106,6 +106,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.navigation.testing)
     androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.mockito.core)
+    androidTestImplementation(libs.mockito.kotlin)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
