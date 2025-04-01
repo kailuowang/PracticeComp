@@ -1,5 +1,6 @@
 package com.kailuowang.practicecomp
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,9 +42,24 @@ fun PracticeCalendarScreen(
     val currentDate = remember { LocalDate.now() }
     var selectedMonth by remember { mutableStateOf(YearMonth.from(currentDate)) }
     
-    // Calculate overall practice statistics
-    val monthlyPracticeTime = viewModel.getPracticeDurationForMonth(selectedMonth)
-    val lifetimePracticeTime = viewModel.getLifetimePracticeDuration()
+    // Force refresh sessions when screen is first displayed
+    LaunchedEffect(Unit) {
+        Log.d("PracticeCalendarScreen", "Refreshing sessions on calendar screen launch")
+        viewModel.refreshSessions()
+        // Short delay to ensure sessions are loaded
+        delay(100)
+    }
+    
+    // Collect sessions to force recomposition when they change
+    val sessions by viewModel.sessions.collectAsState()
+    
+    // Calculate overall practice statistics and force recalculation when month changes
+    val monthlyPracticeTime by remember(selectedMonth, sessions) { 
+        mutableStateOf(viewModel.getPracticeDurationForMonth(selectedMonth))
+    }
+    val lifetimePracticeTime by remember(sessions) { 
+        mutableStateOf(viewModel.getLifetimePracticeDuration())
+    }
     
     val monthlyPracticeFormatted = viewModel.formatPracticeDuration(monthlyPracticeTime)
     val lifetimePracticeFormatted = viewModel.formatPracticeDuration(lifetimePracticeTime)
@@ -109,7 +126,8 @@ fun PracticeCalendarScreen(
             MonthCalendar(
                 selectedMonth = selectedMonth,
                 currentDate = currentDate,
-                viewModel = viewModel
+                viewModel = viewModel,
+                sessions = sessions
             )
             
             // Statistics section
@@ -173,7 +191,8 @@ fun PracticeCalendarScreen(
 fun MonthCalendar(
     selectedMonth: YearMonth,
     currentDate: LocalDate,
-    viewModel: PracticeViewModel
+    viewModel: PracticeViewModel,
+    sessions: List<PracticeSession>
 ) {
     // Day of week labels
     val daysOfWeek = DayOfWeek.values()
@@ -239,6 +258,11 @@ fun MonthCalendar(
                             // Calculate practice time for this day
                             val practiceDuration = viewModel.getPracticeDurationForDate(date.atStartOfDay())
                             val hasPractice = practiceDuration > 0
+                            
+                            // Log for debugging
+                            if (date.dayOfMonth == 1 || hasPractice) {
+                                Log.d("MonthCalendar", "Day ${date.dayOfMonth}: Practice duration = $practiceDuration ms, formatted = ${viewModel.formatPracticeDuration(practiceDuration)}")
+                            }
                             
                             // Day container
                             Column(
