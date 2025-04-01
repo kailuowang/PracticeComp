@@ -274,18 +274,18 @@ fun MonthCalendar(
                                         MaterialTheme.colorScheme.onSurface
                                 )
                                 
-                                // Practice indicator
-                                if (hasPractice) {
-                                    val formattedDuration = viewModel.formatPracticeDuration(practiceDuration)
-                                    Text(
-                                        text = formattedDuration,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isCurrentDay) 
-                                            MaterialTheme.colorScheme.onPrimaryContainer 
-                                        else 
-                                            MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                // Practice indicator - always display practice time
+                                val formattedDuration = viewModel.formatPracticeDuration(practiceDuration)
+                                Text(
+                                    text = formattedDuration,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isCurrentDay) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else if (hasPractice)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.outline // Lighter color for days with no practice
+                                )
                             }
                         }
                     }
