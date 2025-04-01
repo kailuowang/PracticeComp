@@ -14,9 +14,10 @@ This document outlines the planned and potential features for the Practice Compa
     *  [x] **Background Session Tracking:** Practice sessions continue tracking even when the app is minimized or the screen is off, allowing for uninterrupted practice.
     *  [x] **Session Resume:** When a session is running in the background, users can easily return to it from the main screen via a banner notification.
     *  [x] **Dairy Calendar:** Display a Month Calendar, default to current month, but can navigate to older month, on each date, display the total practice time for that day, then also display a total practice time for the month and a total life time practice time. 
-
-
-
+        *  [x] **Unit Tests:** Comprehensive test coverage including:
+            *  [x] Unit tests for month calendar utilities (first day index, weeks in month)
+            *  [x] Unit tests for practice duration calculations by date/month
+            *  [x] UI tests for calendar display and navigation
 
 ## Potential Future Features
 
