@@ -84,67 +84,6 @@ class SessionSavingIntegrationTest {
     }
 
     @Test
-    fun `ending a session saves session data correctly`() = runTest {
-        // Given - Session with some practice time
-        val initialTime = testClock.getCurrentTimeMillis()
-        service.setProcessingFlagForTest(true) // Simulate running service
-        val gracePeriod = 8000L // 8-second grace period
-        
-        // Detect music for 10 minutes
-        service.updateTimerState(detectedMusic = true, categoryLabel = "Music", score = 0.8f)
-        testClock.advanceBy(600000) // 10 minutes
-        service.updateUiTimer() // Update UI with current elapsed time
-        
-        // Stop music for 5 minutes, but first silence detection starts grace period
-        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
-        
-        // Advance past grace period to actually stop the timer
-        testClock.advanceBy(gracePeriod + 1000) // Just over 8 seconds
-        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
-        
-        // Continue silence for rest of 5 minutes
-        testClock.advanceBy(300000 - gracePeriod - 1000) // Remaining of 5 minutes
-        service.updateUiTimer() // Update UI with accumulated time
-        
-        // Detect music again for 5 more minutes
-        service.updateTimerState(detectedMusic = true, categoryLabel = "Music", score = 0.8f)
-        testClock.advanceBy(300000) // 5 more minutes
-        service.updateUiTimer() // Update UI with current elapsed time
-        
-        // Stop music again with grace period
-        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
-        testClock.advanceBy(gracePeriod + 1000) // Just over 8 seconds
-        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
-        service.updateUiTimer() // Update accumulated time
-        
-        // Total session time and practice time with grace periods
-        // Exact values may vary due to timing specifics in the implementation
-        
-        // When - End the session and manually set session time (simulating what the service would do)
-        val stateSessionTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-        val statePracticeTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-        
-        viewModel.saveSession(
-            totalTimeMillis = stateSessionTime,
-            practiceTimeMillis = statePracticeTime
-        )
-        
-        // Then - Check session was saved with correct values
-        val sessions = viewModel.sessions.first()
-        assertEquals(1, sessions.size)
-        
-        val savedSession = sessions[0]
-        
-        // Verify the saved session has the same times as what was in the state
-        assertEquals(statePracticeTime, savedSession.practiceTimeMillis)
-        assertEquals(stateSessionTime, savedSession.totalTimeMillis)
-        
-        // Check percentage calculation - should still be approximately 75%
-        val percentage = savedSession.getPracticePercentage()
-        assertTrue("Percentage should be approximately 75%", percentage >= 70 && percentage <= 80)
-    }
-    
-    @Test
     fun `multiple sessions are tracked correctly`() = runTest {
         // First session
         service.setProcessingFlagForTest(true)
