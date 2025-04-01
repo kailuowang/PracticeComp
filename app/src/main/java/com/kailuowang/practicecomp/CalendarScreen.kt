@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -252,7 +253,14 @@ fun MonthCalendar(
                                         width = if (isCurrentDay) 0.dp else 1.dp,
                                         color = if (isCurrentDay) Color.Transparent else MaterialTheme.colorScheme.outlineVariant,
                                         shape = CircleShape
-                                    ),
+                                    )
+                                    .let { mod ->
+                                        if (isCurrentDay) {
+                                            mod.testTag("currentDay")
+                                        } else {
+                                            mod
+                                        }
+                                    },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
