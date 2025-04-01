@@ -219,8 +219,23 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val startOfDay = date.toLocalDate().atStartOfDay()
         val endOfDay = date.toLocalDate().plusDays(1).atStartOfDay().minusNanos(1)
         
+        // Log the date range and sessions being checked for debugging
+        Log.d("PracticeViewModel", "Checking for sessions between $startOfDay and $endOfDay")
+        _sessions.value.forEach { 
+            Log.d("PracticeViewModel", "Session: ${it.date}, practice time: ${it.practiceTimeMillis}")
+        }
+        
+        // Use date comparison on just the date part, not the full timestamp
         return _sessions.value
-            .filter { it.date.isAfter(startOfDay) && it.date.isBefore(endOfDay) }
+            .filter { 
+                it.date.toLocalDate() == date.toLocalDate()
+            }
+            .also { matchedSessions ->
+                Log.d("PracticeViewModel", "Found ${matchedSessions.size} sessions for ${date.toLocalDate()}")
+                matchedSessions.forEach {
+                    Log.d("PracticeViewModel", "Matched session: ${it.date}, practice time: ${it.practiceTimeMillis}")
+                }
+            }
             .sumOf { it.practiceTimeMillis }
     }
     
@@ -229,8 +244,19 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val startOfMonth = yearMonth.atDay(1).atStartOfDay()
         val endOfMonth = yearMonth.atEndOfMonth().plusDays(1).atStartOfDay().minusNanos(1)
         
+        Log.d("PracticeViewModel", "Checking for sessions in month: $yearMonth")
+        
         return _sessions.value
-            .filter { it.date.isAfter(startOfMonth) && it.date.isBefore(endOfMonth) }
+            .filter { 
+                val sessionYearMonth = YearMonth.from(it.date)
+                sessionYearMonth == yearMonth
+            }
+            .also { matchedSessions ->
+                Log.d("PracticeViewModel", "Found ${matchedSessions.size} sessions for month $yearMonth")
+                matchedSessions.forEach {
+                    Log.d("PracticeViewModel", "Matched session: ${it.date}, practice time: ${it.practiceTimeMillis}")
+                }
+            }
             .sumOf { it.practiceTimeMillis }
     }
     
@@ -243,12 +269,14 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun formatPracticeDuration(durationMillis: Long): String {
         val hours = durationMillis / (1000 * 60 * 60)
         val minutes = (durationMillis % (1000 * 60 * 60)) / (1000 * 60)
+        val seconds = (durationMillis % (1000 * 60)) / 1000
         
         return when {
             hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
             hours > 0 -> "${hours}h"
             minutes > 0 -> "${minutes}m"
-            else -> "0m"
+            seconds > 0 -> "${seconds}s"
+            else -> "0s"
         }
     }
 
