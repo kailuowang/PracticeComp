@@ -55,6 +55,26 @@ This guide will walk you through the steps to run the Practice Companion app on 
    - The app should appear in your app drawer
    - Tap on the Practice Companion icon to launch it
 
+## Using the App Independently
+
+Once installed, Practice Companion runs completely independently on your Android device:
+
+1. **No computer connection required**
+   - After installation, you can disconnect your phone from the computer
+   - The app will continue to function normally with all features available
+
+2. **Background operation**
+   - The app can track your practice sessions even when your phone screen is off
+   - A notification will show when a practice session is active
+
+3. **Data persistence**
+   - All your practice sessions are saved directly on your device
+   - Your data remains available even if you restart your phone
+
+4. **Reinstallation note**
+   - If you uninstall the app, all saved practice data will be lost
+   - Consider backing up important practice history before uninstalling
+
 ## Troubleshooting
 
 ### Device Not Detected
