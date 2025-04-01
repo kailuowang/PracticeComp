@@ -45,8 +45,15 @@ object AppDestinations {
 }
 
 class MainActivity : ComponentActivity() {
+    private val TAG = "MainActivity"
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate called, intent: ${intent?.extras?.keySet()?.joinToString()}")
+        if (intent?.hasExtra("navigate_to") == true) {
+            Log.d(TAG, "onCreate has navigate_to: ${intent.getStringExtra("navigate_to")}")
+        }
+        
         setContent {
             PracticeCompTheme {
                 PracticeApp(intent = intent)
@@ -55,6 +62,11 @@ class MainActivity : ComponentActivity() {
     }
     
     override fun onNewIntent(intent: Intent) {
+        Log.d(TAG, "onNewIntent called, intent: ${intent?.extras?.keySet()?.joinToString()}")
+        if (intent.hasExtra("navigate_to")) {
+            Log.d(TAG, "onNewIntent has navigate_to: ${intent.getStringExtra("navigate_to")}")
+        }
+        
         super.onNewIntent(intent)
         setIntent(intent)
         // The activity will be recomposed, and the new intent will be passed to PracticeApp
@@ -85,15 +97,20 @@ fun PracticeApp(
     
     // Handle navigation from notification
     LaunchedEffect(intent) {
+        Log.d("PracticeApp", "LaunchedEffect(intent) called, intent extras: ${intent?.extras?.keySet()?.joinToString()}")
         intent?.getStringExtra("navigate_to")?.let { destination ->
+            Log.d("PracticeApp", "Found navigate_to extra: $destination, currentRoute: $currentRoute")
             if (destination == AppDestinations.PRACTICE_SESSION && 
                 currentRoute != AppDestinations.PRACTICE_SESSION) {
+                Log.d("PracticeApp", "Navigating to $destination")
                 navController.navigate(destination) {
                     // Pop up to the start destination to avoid building up a large stack
                     popUpTo(AppDestinations.PRACTICE_LIST) { saveState = true }
                     // Avoid multiple copies of the same destination on the back stack
                     launchSingleTop = true
                 }
+            } else {
+                Log.d("PracticeApp", "Not navigating - already at destination or unknown destination")
             }
         }
     }

@@ -416,24 +416,36 @@ class PracticeTrackingService(
         // Intent to open directly to the practice session screen when notification is tapped
         val notificationIntent = Intent(this, MainActivity::class.java).apply {
             // Add flags to clear any existing activities and start fresh
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or 
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
             
             // Add extra to indicate we want to go directly to the session screen
             putExtra("navigate_to", AppDestinations.PRACTICE_SESSION)
         }
         
+        // Using different flag combinations based on API level for maximum compatibility
+        val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0, 
+            0, // Request code
             notificationIntent, 
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            pendingIntentFlags
         )
+
+        Log.d(TAG, "Creating notification with intent extras: ${notificationIntent.extras?.keySet()?.joinToString() ?: "null"}")
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Practice Companion")
-            .setContentText("Monitoring practice session...")
-            // .setSmallIcon(R.drawable.ic_notification_icon) // Replace with your actual icon
+            .setContentText("Tap to return to your practice session")
+            .setSmallIcon(android.R.drawable.ic_media_play) // Use a built-in icon as placeholder
             .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Make it more noticeable
             .setOngoing(true) // Make it non-dismissable
             .build()
     }
