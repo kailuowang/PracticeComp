@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -49,8 +50,12 @@ class PracticeViewModelTest {
         // Mock SharedPreferences using lenient() to avoid UnnecessaryStubbingException
         Mockito.lenient().`when`(mockApplication.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)).thenReturn(mockSharedPrefs)
         Mockito.lenient().`when`(mockSharedPrefs.getString(any(), any())).thenReturn(null)
+        Mockito.lenient().`when`(mockSharedPrefs.getInt(any(), any())).thenReturn(0)
         Mockito.lenient().`when`(mockSharedPrefs.edit()).thenReturn(mockEditor)
         Mockito.lenient().`when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
+        Mockito.lenient().`when`(mockEditor.putInt(any(), any())).thenReturn(mockEditor)
+        Mockito.lenient().`when`(mockEditor.commit()).thenReturn(true)
+        Mockito.lenient().`when`(mockEditor.apply()).then {} // Mock apply() to do nothing
         
         Dispatchers.setMain(testDispatcher)
         viewModel = PracticeViewModel(mockApplication)
@@ -133,4 +138,30 @@ class PracticeViewModelTest {
     }
     
     // Note: The deleteSession functionality is tested in SessionDeletionTest
+
+    @Test
+    fun `updateGoalMinutes updates the goal in state flow`() = runTest {
+        // Given
+        val goalMinutes = 30
+        
+        // When
+        viewModel.updateGoalMinutes(goalMinutes)
+        
+        // Then
+        val currentGoal = viewModel.goalMinutes.first()
+        assertEquals(goalMinutes, currentGoal)
+    }
+
+    @Test
+    fun `updateGoalMinutes saves goal to SharedPreferences`() = runTest {
+        // Given
+        val goalMinutes = 45
+        
+        // When
+        viewModel.updateGoalMinutes(goalMinutes)
+        
+        // Then
+        Mockito.verify(mockEditor).putInt("practice_goal_minutes", goalMinutes)
+        Mockito.verify(mockEditor).apply()
+    }
 } 

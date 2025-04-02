@@ -14,9 +14,11 @@ import android.media.AudioRecord
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -52,6 +54,11 @@ class PracticeTrackingService(
     private lateinit var classificationExecutor: ScheduledExecutorService
     private lateinit var uiUpdateExecutor: ScheduledExecutorService // Separate executor for UI updates
     private var isProcessing = false
+    
+    // TextToSpeech
+    private var textToSpeech: TextToSpeech? = null
+    private var isTtsInitialized = false
+    private var goalReachedAnnounced = false
 
     // Timer State Variables
     @Volatile // Ensure visibility across threads
@@ -68,6 +75,40 @@ class PracticeTrackingService(
         createNotificationChannel()
         classificationExecutor = Executors.newSingleThreadScheduledExecutor()
         uiUpdateExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize UI timer executor
+        
+        // Initialize TextToSpeech
+        initializeTextToSpeech()
+    }
+    
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = textToSpeech?.setLanguage(Locale.US)
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e(TAG, "This Language is not supported for TTS")
+                } else {
+                    isTtsInitialized = true
+                    textToSpeech?.setSpeechRate(0.8f) // Slightly slower rate for clarity
+                    Log.d(TAG, "TextToSpeech initialized successfully")
+                }
+            } else {
+                Log.e(TAG, "Initialization failed for TextToSpeech")
+            }
+        }
+    }
+    
+    private fun speakText(text: String) {
+        if (isTtsInitialized && textToSpeech != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "goalReached")
+            } else {
+                @Suppress("DEPRECATION")
+                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null)
+            }
+            Log.d(TAG, "Speaking: $text")
+        } else {
+            Log.e(TAG, "TextToSpeech not initialized, cannot speak")
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -81,6 +122,9 @@ class PracticeTrackingService(
             DetectionStateHolder.resetState() // Reset UI state
             startAudioProcessing()
         }
+        
+        // Reset goal reached flag when starting service
+        goalReachedAnnounced = false
         
         // Set static flag that service is running
         isServiceRunning = true
@@ -96,6 +140,15 @@ class PracticeTrackingService(
         }
         classificationExecutor.shutdownNow()
         uiUpdateExecutor.shutdownNow() // Shutdown UI timer executor
+        
+        // Shutdown TextToSpeech
+        if (textToSpeech != null) {
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
+            textToSpeech = null
+            isTtsInitialized = false
+        }
+        
         stopForeground(STOP_FOREGROUND_REMOVE)
         
         // Clear static flag when service is destroyed
@@ -108,6 +161,7 @@ class PracticeTrackingService(
         accumulatedTimeMillis = 0L
         lastMusicDetectionTimeMillis = 0L
         isPendingMusicStop = false
+        goalReachedAnnounced = false
     }
 
     @SuppressLint("MissingPermission")
@@ -322,6 +376,30 @@ class PracticeTrackingService(
              newTimeMillis = currentDisplayTime,
              newTotalSessionTimeMillis = totalSessionTime
          )
+         
+         // Check for goal reached
+         checkGoalReached(currentDisplayTime)
+     }
+     
+     // Check if practice goal has been reached and announce it
+     private fun checkGoalReached(currentDisplayTime: Long) {
+         val viewModel = PracticeAppContainer.provideViewModel(application)
+         val currentState = viewModel.uiState.value
+         
+         // Check if goal is set and reached
+         if (currentState.goalMinutes > 0 && !goalReachedAnnounced) {
+             val goalMillis = currentState.goalMinutes * 60 * 1000L
+             
+             if (currentDisplayTime >= goalMillis) {
+                 Log.d(TAG, "Practice goal reached! ${currentState.goalMinutes} minutes")
+                 
+                 // Announce goal reached
+                 speakText("You did it! Goal reached.")
+                 
+                 // Set flag to not repeat announcement
+                 goalReachedAnnounced = true
+             }
+         }
      }
 
     // --- Expose state for testing (use with caution, only for unit tests) ---

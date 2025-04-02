@@ -26,17 +26,27 @@ data class PracticeUiState(
     val detectionStatus: String = "Initializing...",
     val formattedPracticeTime: String = "00:00:00",
     val formattedTotalSessionTime: String = "00:00:00",
-    val sessionActive: Boolean = false
+    val sessionActive: Boolean = false,
+    val goalMinutes: Int = 0,
+    val goalReached: Boolean = false
 )
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sharedPrefs = application.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)
     private val PREF_KEY_SESSIONS = "saved_sessions"
+    private val PREF_KEY_GOAL_MINUTES = "practice_goal_minutes"
     
     // Store practice sessions
     private val _sessions = MutableStateFlow<List<PracticeSession>>(emptyList())
     val sessions: StateFlow<List<PracticeSession>> = _sessions.asStateFlow()
+    
+    // Session goal in minutes
+    private val _goalMinutes = MutableStateFlow(sharedPrefs.getInt(PREF_KEY_GOAL_MINUTES, 0))
+    val goalMinutes: StateFlow<Int> = _goalMinutes.asStateFlow()
+    
+    // Flag to track if goal has been announced
+    private val _goalAnnounced = MutableStateFlow(false)
 
     init {
         // Load saved sessions when ViewModel is created
@@ -52,18 +62,61 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 detectionState.totalSessionTimeMillis
             }
             
+            val currentGoalMinutes = _goalMinutes.value
+            val practiceTimeMillis = detectionState.accumulatedTimeMillis
+            val goalReached = currentGoalMinutes > 0 && 
+                practiceTimeMillis >= (currentGoalMinutes * 60 * 1000)
+                
+            // Update goal announced flag if needed
+            if (goalReached && !_goalAnnounced.value) {
+                _goalAnnounced.value = true
+            }
+            
             PracticeUiState(
                 detectionStatus = detectionState.statusMessage,
                 formattedPracticeTime = formatMillisToTimer(detectionState.accumulatedTimeMillis),
                 formattedTotalSessionTime = formatMillisToTimer(elapsedSessionTime),
-                sessionActive = true
+                sessionActive = true,
+                goalMinutes = currentGoalMinutes,
+                goalReached = goalReached
             )
         }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000), // Keep observing for 5s after last subscriber
-            initialValue = PracticeUiState() // Initial UI state
+            initialValue = PracticeUiState(goalMinutes = _goalMinutes.value) // Initial UI state
         )
+
+    // Update practice goal in minutes
+    fun updateGoalMinutes(minutes: Int) {
+        if (minutes != _goalMinutes.value) {
+            _goalMinutes.value = minutes
+            _goalAnnounced.value = false // Reset announcement flag for new goal
+            
+            // Save to SharedPreferences
+            sharedPrefs.edit().putInt(PREF_KEY_GOAL_MINUTES, minutes).apply()
+            
+            Log.d("PracticeViewModel", "Updated practice goal to $minutes minutes")
+        }
+    }
+    
+    // Check if goal is reached but not yet announced
+    fun isGoalJustReached(): Boolean {
+        val currentState = uiState.value
+        
+        // Check if goal is reached according to current UI state
+        if (currentState.goalReached && !_goalAnnounced.value) {
+            // Set the flag to true
+            _goalAnnounced.value = true
+            return true
+        }
+        return false
+    }
+    
+    // Reset goal announcement flag (e.g., for new sessions)
+    fun resetGoalAnnounced() {
+        _goalAnnounced.value = false
+    }
 
     // Helper function to format milliseconds into HH:MM:SS
     private fun formatMillisToTimer(millis: Long): String {

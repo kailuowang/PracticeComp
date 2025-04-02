@@ -1,48 +1,61 @@
 package com.kailuowang.practicecomp
 
 import android.Manifest
+import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.kailuowang.practicecomp.ui.theme.PracticeCompTheme
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Box
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 
 // Define navigation routes
 object AppDestinations {
@@ -83,9 +96,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PracticeApp(
     navController: NavHostController = rememberNavController(),
-    practiceViewModel: PracticeViewModel = viewModel(),
     intent: Intent? = null
 ) {
+    // Get ViewModel from container
+    val practiceViewModel = PracticeAppContainer.provideViewModel(LocalContext.current.applicationContext as Application)
+    
     // Simple session state to track
     val isReturningFromSession = remember { mutableStateOf(false) }
     val isBackgroundSessionActive = remember { mutableStateOf(false) }
@@ -602,6 +617,117 @@ fun PracticeSessionScreen(
                 Text("Waiting for permissions...", style = MaterialTheme.typography.bodyMedium)
             }
             
+            // Add Goal Setting Section
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Session Goal Setting
+            val currentGoalMinutes = uiState.goalMinutes
+            var goalMinutesText by remember { mutableStateOf(if (currentGoalMinutes > 0) currentGoalMinutes.toString() else "") }
+            var showGoalInput by remember { mutableStateOf(false) }
+            var isGoalReached = uiState.goalReached
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isGoalReached) 
+                        MaterialTheme.colorScheme.tertiaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Practice Goal",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isGoalReached) 
+                            MaterialTheme.colorScheme.onTertiaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    if (showGoalInput) {
+                        // Goal input field
+                        OutlinedTextField(
+                            value = goalMinutesText,
+                            onValueChange = { 
+                                // Only allow numeric input
+                                if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                    goalMinutesText = it
+                                }
+                            },
+                            label = { Text("Minutes") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.width(150.dp)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Cancel button
+                            OutlinedButton(
+                                onClick = { 
+                                    showGoalInput = false
+                                    goalMinutesText = if (currentGoalMinutes > 0) 
+                                        currentGoalMinutes.toString() else ""
+                                }
+                            ) {
+                                Text("Cancel")
+                            }
+                            
+                            // Save button
+                            Button(
+                                onClick = { 
+                                    val minutes = goalMinutesText.toIntOrNull() ?: 0
+                                    viewModel.updateGoalMinutes(minutes)
+                                    showGoalInput = false
+                                }
+                            ) {
+                                Text("Save")
+                            }
+                        }
+                    } else {
+                        // Goal display
+                        if (currentGoalMinutes > 0) {
+                            Text(
+                                text = if (isGoalReached) 
+                                    "Goal Reached: ${currentGoalMinutes} minutes" 
+                                else 
+                                    "Goal: ${currentGoalMinutes} minutes",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (isGoalReached) 
+                                    MaterialTheme.colorScheme.onTertiaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        } else {
+                            Text(
+                                text = "No goal set",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Button(onClick = { showGoalInput = true }) {
+                            Text(if (currentGoalMinutes > 0) "Change Goal" else "Set Goal")
+                        }
+                    }
+                }
+            }
+            
             Spacer(modifier = Modifier.height(32.dp))
             
             // End Session Button - This stops the service and saves the session
@@ -697,10 +823,12 @@ fun PracticeSessionItemPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Practice Session")
+@Preview(showBackground = true)
 @Composable
 fun PracticeSessionScreenPreview() {
-    val previewViewModel: PracticeViewModel = viewModel()
+    val context = LocalContext.current
+    val previewViewModel = PracticeAppContainer.provideViewModel(context.applicationContext as Application)
+    
     PracticeCompTheme {
         PracticeSessionScreen(
              viewModel = previewViewModel,
