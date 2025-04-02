@@ -683,14 +683,17 @@ class PracticeTrackingService(
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             
             val isIgnoringBatteryOptimizations = pm.isIgnoringBatteryOptimizations(packageName)
-            Log.i(TAG, "Battery optimization status: ${if (isIgnoringBatteryOptimizations) "IGNORED (good)" else "ENABLED (may restrict service)"}")
             
-            if (!isIgnoringBatteryOptimizations && isDebugMode()) {
-                // In debug mode, notify about potential issue
-                handleException(
-                    Exception("Battery optimization may restrict service"),
-                    "Performance Warning"
-                )
+            if (isIgnoringBatteryOptimizations) {
+                Log.i(TAG, "Battery optimization status: IGNORED (good) - Service can run without restrictions")
+            } else {
+                Log.w(TAG, "Battery optimization status: ENABLED - This may restrict service operation in the background")
+                
+                if (isDebugMode()) {
+                    // In debug mode, just log a more detailed warning but don't throw an exception
+                    Log.w(TAG, "DEVELOPER NOTE: Consider disabling battery optimization for more reliable testing. " +
+                          "Go to Settings > Apps > Practice Companion > Battery > Unrestricted")
+                }
             }
         } else {
             Log.i(TAG, "Device running Android < 6.0, no battery optimization check needed")
