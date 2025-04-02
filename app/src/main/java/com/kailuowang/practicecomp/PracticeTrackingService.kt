@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.media.AudioRecord
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -37,6 +38,9 @@ class PracticeTrackingService(
         @Volatile
         var isServiceRunning = false
             private set
+            
+        // Utility function to check if app is in debug mode
+        fun isDebugMode(): Boolean = BuildConfig.DEBUG
     }
 
     private val TAG = "PracticeTrackingService"
@@ -47,13 +51,21 @@ class PracticeTrackingService(
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
     private val MUSIC_CONFIDENCE_THRESHOLD = 0.7f // Increased threshold from 0.5f to 0.7f
     private val NON_PRACTICE_INTERVAL_MS = 8000L // Wait 8 seconds before considering practice stopped
+    private val HEALTH_CHECK_INTERVAL_MS = 30000L // Health check every 30 seconds
 
     private var audioRecord: AudioRecord? = null
     private var soundClassifier: AudioClassifier? = null
     private var tensorAudio: TensorAudio? = null
     private lateinit var classificationExecutor: ScheduledExecutorService
     private lateinit var uiUpdateExecutor: ScheduledExecutorService // Separate executor for UI updates
+    private lateinit var healthCheckExecutor: ScheduledExecutorService // Executor for health checks
     private var isProcessing = false
+    
+    // Tracking variables for health monitoring
+    private var lastClassificationTimeMs = 0L
+    private var lastUiUpdateTimeMs = 0L
+    private var classificationCount = 0
+    private var uiUpdateCount = 0
     
     // TextToSpeech
     private var textToSpeech: TextToSpeech? = null
@@ -75,6 +87,7 @@ class PracticeTrackingService(
         createNotificationChannel()
         classificationExecutor = Executors.newSingleThreadScheduledExecutor()
         uiUpdateExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize UI timer executor
+        healthCheckExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize health check executor
         
         // Initialize TextToSpeech
         initializeTextToSpeech()
@@ -117,6 +130,9 @@ class PracticeTrackingService(
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
 
+        // Check and log battery optimization status
+        checkBatteryOptimizationStatus()
+
         if (!isProcessing) {
             resetTimerState() // Reset timer when starting
             DetectionStateHolder.resetState() // Reset UI state
@@ -138,8 +154,11 @@ class PracticeTrackingService(
         if (isProcessing) {
             stopAudioProcessing()
         }
-        classificationExecutor.shutdownNow()
-        uiUpdateExecutor.shutdownNow() // Shutdown UI timer executor
+        
+        // Ensure executors are shut down
+        if (!classificationExecutor.isShutdown) classificationExecutor.shutdownNow()
+        if (!uiUpdateExecutor.isShutdown) uiUpdateExecutor.shutdownNow()
+        if (!healthCheckExecutor.isShutdown) healthCheckExecutor.shutdownNow()
         
         // Shutdown TextToSpeech
         if (textToSpeech != null) {
@@ -192,10 +211,16 @@ class PracticeTrackingService(
             isProcessing = true
             audioRecord?.startRecording()
             Log.d(TAG, "AudioRecord started recording.")
+            
+            // Reset health monitoring counters
+            lastClassificationTimeMs = System.currentTimeMillis()
+            lastUiUpdateTimeMs = System.currentTimeMillis()
+            classificationCount = 0
+            uiUpdateCount = 0
 
             // Start the classification loop
             classificationExecutor.scheduleAtFixedRate(
-                this::runClassification,
+                this::runClassificationWithErrorHandling, // Use wrapper method with error handling
                 0, // Initial delay
                 CLASSIFICATION_INTERVAL_MS, // Interval
                 TimeUnit.MILLISECONDS
@@ -203,18 +228,68 @@ class PracticeTrackingService(
 
             // Start the UI update loop
              uiUpdateExecutor.scheduleAtFixedRate(
-                 this::updateUiTimer,
+                 this::updateUiTimerWithErrorHandling, // Use wrapper method with error handling
                  0, // Initial delay
                  UI_UPDATE_INTERVAL_MS, // Interval (e.g., every second)
                  TimeUnit.MILLISECONDS
              )
+             
+            // Start health check timer
+            healthCheckExecutor.scheduleAtFixedRate(
+                this::performHealthCheck,
+                HEALTH_CHECK_INTERVAL_MS, // Initial delay
+                HEALTH_CHECK_INTERVAL_MS, // Interval
+                TimeUnit.MILLISECONDS
+            )
 
-            Log.d(TAG, "Classification and UI update tasks scheduled.")
+            Log.d(TAG, "Classification, UI update, and health check tasks scheduled.")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing audio processing", e)
+            handleException(e, "Error initializing audio processing")
             stopAudioProcessing()
             stopSelf() // Stop the service on fatal error
+        }
+    }
+    
+    // Wrapper method with error handling for classification
+    private fun runClassificationWithErrorHandling() {
+        try {
+            // Update health monitoring data
+            lastClassificationTimeMs = System.currentTimeMillis()
+            classificationCount++
+            
+            runClassification()
+        } catch (e: Exception) {
+            handleException(e, "Exception in classification loop")
+            // In debug mode, we might want to rethrow to crash the app and get developer's attention
+            // In production, we'll try to recover
+            if (!isDebugMode()) {
+                // Try to recover by resetting audio processing
+                try {
+                    Log.w(TAG, "Attempting to recover from error by restarting audio processing")
+                    stopAudioProcessing()
+                    startAudioProcessing()
+                } catch (recoveryException: Exception) {
+                    Log.e(TAG, "Failed to recover from error", recoveryException)
+                    stopSelf() // Stop service if recovery fails
+                }
+            } else {
+                // In debug mode, we'll stop processing to make the error more obvious
+                stopAudioProcessing()
+            }
+        }
+    }
+    
+    // Wrapper method with error handling for UI updates
+    private fun updateUiTimerWithErrorHandling() {
+        try {
+            // Update health monitoring data
+            lastUiUpdateTimeMs = System.currentTimeMillis()
+            uiUpdateCount++
+            
+            updateUiTimer()
+        } catch (e: Exception) {
+            handleException(e, "Exception in UI timer update")
         }
     }
 
@@ -280,7 +355,8 @@ class PracticeTrackingService(
             updateTimerState(detectedMusic, topCategoryLabel, topScore)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error during classification loop", e)
+            handleException(e, "Error during classification loop")
+            throw e // Rethrow to be caught by the wrapper method
         }
     }
 
@@ -423,10 +499,33 @@ class PracticeTrackingService(
         Log.d(TAG, "Stopping audio processing...")
         isProcessing = false
 
+        // Log executor states before shutting down
+        Log.d(TAG, "Classification executor shutdown state: isShutdown=${classificationExecutor.isShutdown}, isTerminated=${classificationExecutor.isTerminated}")
+        Log.d(TAG, "UI update executor shutdown state: isShutdown=${uiUpdateExecutor.isShutdown}, isTerminated=${uiUpdateExecutor.isTerminated}")
+        Log.d(TAG, "Health check executor shutdown state: isShutdown=${healthCheckExecutor.isShutdown}, isTerminated=${healthCheckExecutor.isTerminated}")
+
         // Stop timers first
         // Use try-catch for shutdownNow in case they are already terminated
-        try { classificationExecutor.shutdownNow() } catch (e: Exception) { Log.w(TAG, "Error shutting down classificationExecutor", e) }
-        try { uiUpdateExecutor.shutdownNow() } catch (e: Exception) { Log.w(TAG, "Error shutting down uiUpdateExecutor", e) }
+        try { 
+            classificationExecutor.shutdownNow() 
+            Log.d(TAG, "Classification executor shutdown successfully")
+        } catch (e: Exception) { 
+            handleException(e, "Error shutting down classificationExecutor")
+        }
+        
+        try { 
+            uiUpdateExecutor.shutdownNow() 
+            Log.d(TAG, "UI update executor shutdown successfully")
+        } catch (e: Exception) { 
+            handleException(e, "Error shutting down uiUpdateExecutor")
+        }
+        
+        try { 
+            healthCheckExecutor.shutdownNow() 
+            Log.d(TAG, "Health check executor shutdown successfully")
+        } catch (e: Exception) { 
+            handleException(e, "Error shutting down healthCheckExecutor")
+        }
 
         // This now uses the injected clock via calculateFinalTime()
         val finalAccumulatedTime = calculateFinalTime()
@@ -466,13 +565,19 @@ class PracticeTrackingService(
     private fun releaseAudioResources() {
          try {
              audioRecord?.stop()
-         } catch (e: Exception) { Log.e(TAG, "Error stopping AudioRecord", e) }
+         } catch (e: Exception) { 
+             handleException(e, "Error stopping AudioRecord")
+         }
          try {
              audioRecord?.release()
-         } catch (e: Exception) { Log.e(TAG, "Error releasing AudioRecord", e) }
+         } catch (e: Exception) { 
+             handleException(e, "Error releasing AudioRecord")
+         }
          try {
              soundClassifier?.close()
-         } catch (e: Exception) { Log.e(TAG, "Error closing SoundClassifier", e) }
+         } catch (e: Exception) { 
+             handleException(e, "Error closing SoundClassifier")
+         }
          audioRecord = null
          soundClassifier = null
          tensorAudio = null
@@ -530,5 +635,131 @@ class PracticeTrackingService(
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
+    }
+
+    // Helper method to handle exceptions based on build type
+    private fun handleException(e: Exception, message: String) {
+        if (isDebugMode()) {
+            // In debug mode, log detailed error and notify the user
+            Log.e(TAG, "$message: ${e.message}", e)
+            
+            // Show a notification to the developer about the error
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            // Create a debug channel if needed
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val debugChannel = NotificationChannel(
+                    "debug_channel",
+                    "Debug Errors",
+                    NotificationManager.IMPORTANCE_HIGH
+                )
+                notificationManager.createNotificationChannel(debugChannel)
+            }
+            
+            // Create and show the notification
+            val errorNotification = NotificationCompat.Builder(this, "debug_channel")
+                .setContentTitle("Practice Companion Debug Error")
+                .setContentText("$message: ${e.message}")
+                .setStyle(NotificationCompat.BigTextStyle()
+                    .bigText("$message: ${e.message}\n${e.stackTraceToString().take(500)}..."))
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .build()
+                
+            notificationManager.notify(9999, errorNotification)
+        } else {
+            // In production mode, just log the error
+            Log.e(TAG, message, e)
+        }
+    }
+
+    /**
+     * Checks if battery optimization is enabled for the app and logs the status.
+     * Battery optimization can cause background services to be killed or restricted.
+     */
+    private fun checkBatteryOptimizationStatus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val packageName = packageName
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            
+            val isIgnoringBatteryOptimizations = pm.isIgnoringBatteryOptimizations(packageName)
+            Log.i(TAG, "Battery optimization status: ${if (isIgnoringBatteryOptimizations) "IGNORED (good)" else "ENABLED (may restrict service)"}")
+            
+            if (!isIgnoringBatteryOptimizations && isDebugMode()) {
+                // In debug mode, notify about potential issue
+                handleException(
+                    Exception("Battery optimization may restrict service"),
+                    "Performance Warning"
+                )
+            }
+        } else {
+            Log.i(TAG, "Device running Android < 6.0, no battery optimization check needed")
+        }
+    }
+
+    /**
+     * Performs a health check on the service to ensure audio processing is still active.
+     * If processing appears to have stopped, attempts to restart it.
+     */
+    private fun performHealthCheck() {
+        try {
+            val now = System.currentTimeMillis()
+            val classificationAge = now - lastClassificationTimeMs
+            val uiUpdateAge = now - lastUiUpdateTimeMs
+            
+            Log.d(TAG, "Health check: isProcessing=$isProcessing, " +
+                 "classification [count=$classificationCount, lastRun=${classificationAge}ms ago], " +
+                 "UI update [count=$uiUpdateCount, lastRun=${uiUpdateAge}ms ago]")
+            
+            // Check if processing flag is true but no activity has occurred recently
+            if (isProcessing) {
+                // Check if classification hasn't run for 3x its expected interval
+                if (classificationAge > 3 * CLASSIFICATION_INTERVAL_MS) {
+                    Log.w(TAG, "Health check detected stalled classification loop (${classificationAge}ms since last run)")
+                    
+                    // If in debug mode, show notification
+                    if (isDebugMode()) {
+                        handleException(
+                            Exception("Classification loop stalled for ${classificationAge}ms"),
+                            "Service Health Warning"
+                        )
+                    }
+                    
+                    // Attempt recovery
+                    Log.i(TAG, "Health check attempting recovery by restarting audio processing")
+                    stopAudioProcessing()
+                    startAudioProcessing()
+                    return
+                }
+                
+                // Check if UI updates haven't run for 3x their expected interval
+                if (uiUpdateAge > 3 * UI_UPDATE_INTERVAL_MS) {
+                    Log.w(TAG, "Health check detected stalled UI update loop (${uiUpdateAge}ms since last run)")
+                    
+                    // If in debug mode, show notification
+                    if (isDebugMode()) {
+                        handleException(
+                            Exception("UI update loop stalled for ${uiUpdateAge}ms"),
+                            "Service Health Warning"
+                        )
+                    }
+                    
+                    // Less severe - might recover on its own
+                    // We could restart this specific task if needed
+                }
+            } else {
+                // Service says it's not processing - this shouldn't happen unless we're shutting down
+                Log.w(TAG, "Health check found isProcessing=false while service is running")
+                
+                // If the service should be running but isn't processing, restart
+                if (isServiceRunning) {
+                    Log.i(TAG, "Health check restarting audio processing because isServiceRunning=true but isProcessing=false")
+                    startAudioProcessing()
+                }
+            }
+        } catch (e: Exception) {
+            // Catch and log, but don't crash - health check should be robust
+            Log.e(TAG, "Error in health check", e)
+        }
     }
 } 
