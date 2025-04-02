@@ -112,8 +112,30 @@ class PracticeTrackingService(
             val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             Log.d(TAG, "Initial audio state: volume=$currentVolume/$maxVolume")
             
-            // Ensure volume is sufficiently loud for TTS (set to at least 70% of max)
-            val targetVolume = (maxVolume * 0.7).toInt()
+            // Force audio routing to speaker for simulator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                audioManager.mode = AudioManager.MODE_NORMAL
+                
+                // For simulator, make sure audio is routed through speaker
+                if (isDebugMode()) {
+                    try {
+                        val isWiredHeadsetOn = audioManager.isWiredHeadsetOn
+                        val isBluetoothA2dpOn = audioManager.isBluetoothA2dpOn
+                        Log.d(TAG, "Audio routing: wiredHeadset=$isWiredHeadsetOn, bluetoothA2dp=$isBluetoothA2dpOn")
+                        
+                        // Force speakerphone if no headphones are connected
+                        if (!isWiredHeadsetOn && !isBluetoothA2dpOn) {
+                            audioManager.isSpeakerphoneOn = true
+                            Log.d(TAG, "Forcing speakerphone ON for simulator")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error setting speakerphone", e)
+                    }
+                }
+            }
+            
+            // Ensure volume is sufficiently loud for TTS (set to at least 80% of max)
+            val targetVolume = (maxVolume * 0.8).toInt()
             if (currentVolume < targetVolume) {
                 Log.d(TAG, "Adjusting volume from $currentVolume to $targetVolume for better TTS audibility")
                 audioManager.setStreamVolume(
@@ -123,16 +145,15 @@ class PracticeTrackingService(
                 )
             }
             
-            // Set audio mode to normal to ensure TTS is heard
-            audioManager.mode = AudioManager.MODE_NORMAL
-            
-            // Enable speakerphone for simulator
-            if (isDebugMode()) {
-                if (audioManager.isSpeakerphoneOn) {
-                    Log.d(TAG, "Speakerphone is already enabled")
-                } else {
-                    Log.d(TAG, "Enabling speakerphone for better TTS audibility in simulator")
-                    audioManager.isSpeakerphoneOn = true
+            // Make sure stream isn't muted
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (audioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
+                    Log.d(TAG, "Unmuting STREAM_MUSIC")
+                    audioManager.adjustStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        AudioManager.ADJUST_UNMUTE,
+                        0
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -150,13 +171,23 @@ class PracticeTrackingService(
                     isTtsInitialized = false
                 } else {
                     isTtsInitialized = true
+                    // Force use of STREAM_MUSIC for better simulator compatibility
                     textToSpeech?.setSpeechRate(0.8f) // Slightly slower rate for clarity
                     
-                    // Set higher volume for better audibility in simulator
-                    textToSpeech?.setSpeechRate(0.8f)
+                    // Explicitly set audio stream
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        textToSpeech?.setAudioAttributes(android.media.AudioAttributes.Builder()
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                            .setLegacyStreamType(AudioManager.STREAM_MUSIC)
+                            .build())
+                    }
                     
                     // Perform a test speak to verify TTS is working
                     if (isDebugMode()) {
+                        // Setup audio immediately 
+                        setupAudio()
+                        
                         // Delay slightly to ensure initialization completes
                         Handler(Looper.getMainLooper()).postDelayed({
                             Log.d(TAG, "Attempting test TTS message...")
