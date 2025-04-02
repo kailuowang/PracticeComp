@@ -11,11 +11,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioRecord
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.TextToSpeech.OnUtteranceProgressListener
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -89,38 +93,155 @@ class PracticeTrackingService(
         uiUpdateExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize UI timer executor
         healthCheckExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize health check executor
         
+        // Ensure audio is set up properly
+        setupAudio()
+        
         // Initialize TextToSpeech
         initializeTextToSpeech()
     }
     
+    /**
+     * Set up audio for optimal TTS playback
+     */
+    private fun setupAudio() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            
+            // Log current audio state
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            Log.d(TAG, "Initial audio state: volume=$currentVolume/$maxVolume")
+            
+            // Ensure volume is sufficiently loud for TTS (set to at least 70% of max)
+            val targetVolume = (maxVolume * 0.7).toInt()
+            if (currentVolume < targetVolume) {
+                Log.d(TAG, "Adjusting volume from $currentVolume to $targetVolume for better TTS audibility")
+                audioManager.setStreamVolume(
+                    AudioManager.STREAM_MUSIC, 
+                    targetVolume,
+                    0 // No flags to prevent UI from showing
+                )
+            }
+            
+            // Set audio mode to normal to ensure TTS is heard
+            audioManager.mode = AudioManager.MODE_NORMAL
+            
+            // Enable speakerphone for simulator
+            if (isDebugMode()) {
+                if (audioManager.isSpeakerphoneOn) {
+                    Log.d(TAG, "Speakerphone is already enabled")
+                } else {
+                    Log.d(TAG, "Enabling speakerphone for better TTS audibility in simulator")
+                    audioManager.isSpeakerphoneOn = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting up audio", e)
+        }
+    }
+    
     private fun initializeTextToSpeech() {
+        Log.d(TAG, "Initializing TextToSpeech...")
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 val result = textToSpeech?.setLanguage(Locale.US)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e(TAG, "This Language is not supported for TTS")
+                    Log.e(TAG, "Language is not supported for TTS")
+                    isTtsInitialized = false
                 } else {
                     isTtsInitialized = true
                     textToSpeech?.setSpeechRate(0.8f) // Slightly slower rate for clarity
+                    
+                    // Set higher volume for better audibility in simulator
+                    textToSpeech?.setSpeechRate(0.8f)
+                    
+                    // Perform a test speak to verify TTS is working
+                    if (isDebugMode()) {
+                        // Delay slightly to ensure initialization completes
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            Log.d(TAG, "Attempting test TTS message...")
+                            speakText("Text to speech initialized")
+                        }, 2000)
+                    }
+                    
                     Log.d(TAG, "TextToSpeech initialized successfully")
                 }
             } else {
-                Log.e(TAG, "Initialization failed for TextToSpeech")
+                Log.e(TAG, "TextToSpeech initialization failed with status code: $status")
+                isTtsInitialized = false
             }
         }
     }
     
     private fun speakText(text: String) {
-        if (isTtsInitialized && textToSpeech != null) {
+        Log.d(TAG, "Attempting to speak: '$text', TTS initialized: $isTtsInitialized")
+        
+        if (textToSpeech == null) {
+            Log.e(TAG, "Cannot speak - TextToSpeech is null")
+            return
+        }
+        
+        if (!isTtsInitialized) {
+            Log.e(TAG, "Cannot speak - TextToSpeech not initialized")
+            return
+        }
+        
+        // Ensure audio is properly set up before speaking
+        setupAudio()
+        
+        try {
+            // Use HashMap for parameters to have more control
+            val params = HashMap<String, String>()
+            
+            // Set utterance ID that's unique each time
+            val utteranceId = "goalReached_${System.currentTimeMillis()}"
+            
+            // Add utterance completed listener for debug information
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "goalReached")
+                textToSpeech?.setOnUtteranceProgressListener(object : OnUtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        Log.d(TAG, "TTS utterance started: $utteranceId")
+                    }
+                    
+                    override fun onDone(utteranceId: String?) {
+                        Log.d(TAG, "TTS utterance completed: $utteranceId")
+                    }
+                    
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        Log.e(TAG, "TTS utterance error: $utteranceId")
+                    }
+                    
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        Log.e(TAG, "TTS utterance error: $utteranceId, code: $errorCode")
+                    }
+                })
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+                Log.d(TAG, "TTS speak result: $result")
             } else {
                 @Suppress("DEPRECATION")
-                textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null)
+                val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params)
+                Log.d(TAG, "TTS speak result (legacy): $result")
             }
-            Log.d(TAG, "Speaking: $text")
-        } else {
-            Log.e(TAG, "TextToSpeech not initialized, cannot speak")
+            
+            // For debugging, also log audio output state
+            if (isDebugMode()) {
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val volume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val isMuted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    audioManager.isStreamMute(AudioManager.STREAM_MUSIC)
+                } else {
+                    volume == 0
+                }
+                
+                Log.d(TAG, "Audio state: volume=$volume/$maxVolume, muted=$isMuted, speakerphone=${audioManager.isSpeakerphoneOn}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error when speaking text: ${e.message}", e)
         }
     }
 
@@ -129,6 +250,13 @@ class PracticeTrackingService(
         Log.d(TAG, "Service onStartCommand")
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
+
+        // Check if this is a debug test request
+        if (intent?.getBooleanExtra("test_tts", false) == true) {
+            Log.i(TAG, "Received test_tts flag, will test TTS functionality")
+            testTextToSpeech()
+            // Continue normal startup even when testing
+        }
 
         // Check and log battery optimization status
         checkBatteryOptimizationStatus()
@@ -469,11 +597,26 @@ class PracticeTrackingService(
              if (currentDisplayTime >= goalMillis) {
                  Log.d(TAG, "Practice goal reached! ${currentState.goalMinutes} minutes")
                  
-                 // Announce goal reached
-                 speakText("You did it! Goal reached.")
+                 // Force re-initialization of TTS if needed
+                 if (!isTtsInitialized && textToSpeech == null) {
+                     Log.w(TAG, "TTS not initialized when needed for goal announcement, attempting to reinitialize")
+                     initializeTextToSpeech()
+                     
+                     // Delay the announcement to allow TTS to initialize
+                     Handler(Looper.getMainLooper()).postDelayed({
+                         Log.d(TAG, "Delayed goal announcement after TTS initialization")
+                         speakText("You did it! Goal reached.")
+                     }, 1500)
+                 } else {
+                     // Announce goal reached normally
+                     speakText("You did it! Goal reached.")
+                 }
                  
                  // Set flag to not repeat announcement
                  goalReachedAnnounced = true
+                 
+                 // Verify flag was set
+                 Log.d(TAG, "Goal announced flag set to: $goalReachedAnnounced")
              }
          }
      }
@@ -764,5 +907,39 @@ class PracticeTrackingService(
             // Catch and log, but don't crash - health check should be robust
             Log.e(TAG, "Error in health check", e)
         }
+    }
+
+    /**
+     * Method to manually test the TextToSpeech functionality
+     * This can be triggered by starting the service with an intent that includes
+     * the extra "test_tts" set to true
+     */
+    private fun testTextToSpeech() {
+        Log.i(TAG, "Starting TTS test sequence")
+        
+        // Make sure TTS is initialized
+        if (!isTtsInitialized || textToSpeech == null) {
+            Log.w(TAG, "TTS not initialized for test, reinitializing...")
+            initializeTextToSpeech()
+            
+            // We'll test with increasing delays to see if initialization timing is the issue
+            scheduleTestSpeech(3)  // 3 seconds
+            scheduleTestSpeech(6)  // 6 seconds
+            scheduleTestSpeech(10) // 10 seconds
+        } else {
+            // TTS is already initialized, test immediately and with delay
+            speakText("Testing speech now")
+            scheduleTestSpeech(2)  // 2 seconds later
+        }
+    }
+    
+    /**
+     * Schedule a test speech with a delay
+     */
+    private fun scheduleTestSpeech(delaySec: Int) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            Log.i(TAG, "Attempting delayed test speech after $delaySec seconds")
+            speakText("Test speech after $delaySec seconds")
+        }, delaySec * 1000L)
     }
 } 
