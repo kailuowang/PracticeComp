@@ -760,27 +760,6 @@ fun PracticeSessionScreen(
             ) {
                 Text("End Session")
             }
-
-            // Add debug TTS test button in debug builds
-            if (BuildConfig.DEBUG) {
-                Button(
-                    onClick = { 
-                        // Send an intent to the service to test TTS
-                        val intent = Intent(context, PracticeTrackingService::class.java)
-                        intent.putExtra("test_tts", true)
-                        
-                        // Start the service (or trigger test if already running)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(intent)
-                        } else {
-                            context.startService(intent)
-                        }
-                    },
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    Text("Test TTS")
-                }
-            }
         }
     }
 }
