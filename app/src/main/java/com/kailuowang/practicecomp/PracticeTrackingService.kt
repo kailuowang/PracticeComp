@@ -19,7 +19,7 @@ import android.os.SystemClock
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
-import android.speech.tts.TextToSpeech.OnUtteranceProgressListener
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -198,28 +198,27 @@ class PracticeTrackingService(
             
             // Add utterance completed listener for debug information
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                textToSpeech?.setOnUtteranceProgressListener(object : OnUtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
+                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String) {
                         Log.d(TAG, "TTS utterance started: $utteranceId")
                     }
                     
-                    override fun onDone(utteranceId: String?) {
+                    override fun onDone(utteranceId: String) {
                         Log.d(TAG, "TTS utterance completed: $utteranceId")
                     }
                     
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) {
+                    override fun onError(utteranceId: String) {
                         Log.e(TAG, "TTS utterance error: $utteranceId")
                     }
                     
-                    override fun onError(utteranceId: String?, errorCode: Int) {
+                    override fun onError(utteranceId: String, errorCode: Int) {
                         Log.e(TAG, "TTS utterance error: $utteranceId, code: $errorCode")
                     }
                 })
             }
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+                val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
                 Log.d(TAG, "TTS speak result: $result")
             } else {
                 @Suppress("DEPRECATION")
