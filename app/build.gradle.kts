@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
+    id("kotlin-kapt")
+    id("kotlin-parcelize")
+    id("jacoco")
 }
 
 android {
@@ -29,6 +32,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        getByName("debug") {
+            enableUnitTestCoverage = true
         }
     }
     compileOptions {
@@ -109,4 +115,60 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     testImplementation("androidx.arch.core:core-testing:2.2.0")
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+val kotlinClasses = fileTree("$buildDir/tmp/kotlin-classes/debug") {
+    exclude(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*\$ViewInjector*.*",
+        "**/*\$ViewBinder*.*",
+        "**/Dagger*Component*.*",
+        "**/*Module*.*",
+        "**/*_Factory*.*",
+        "**/*_MembersInjector*.*",
+        "**/*Args*.*",
+        "**/*Directions*.*",
+        "**/*Composable*.*",
+        "**/*Activity*.*",
+        "**/*Fragment*.*",
+        "**/*Adapter*.*",
+        "**/*ViewHolder*.*",
+        "**/*Application*.*",
+        "**/ui/theme/**",
+        "**/PracticeAppContainer*.*",
+        "**/Clock*.*"
+    )
+}
+
+val sourceDirs = files("$projectDir/src/main/java", "$projectDir/src/main/kotlin")
+
+tasks.register("jacocoTestReport", JacocoReport::class) {
+    group = "verification"
+    description = "Generates JaCoCo code coverage reports for the debug unit tests."
+
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
+        html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/jacocoTestReport/html"))
+        xml.outputLocation.set(layout.buildDirectory.file("reports/jacoco/jacocoTestReport/jacocoTestReport.xml"))
+        csv.outputLocation.set(layout.buildDirectory.file("reports/jacoco/jacocoTestReport/jacocoTestReport.csv"))
+    }
+
+    executionData.setFrom(fileTree(buildDir) {
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
+
+    classDirectories.setFrom(files(kotlinClasses))
+
+    sourceDirectories.setFrom(sourceDirs)
 }
