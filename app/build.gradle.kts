@@ -172,3 +172,96 @@ tasks.register("jacocoTestReport", JacocoReport::class) {
 
     sourceDirectories.setFrom(sourceDirs)
 }
+
+// Replace the previous generateCoverageJson task with this Kotlin-compatible version
+
+tasks.register("generateCoverageJson") {
+    description = "Generates a simplified JSON coverage report"
+    group = "verification"
+    
+    dependsOn("jacocoTestReport")
+    
+    doLast {
+        val xmlFile = file("$buildDir/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
+        val jsonFile = file("$buildDir/reports/jacoco/coverage-summary.json")
+        
+        if (xmlFile.exists()) {
+            // Use a simple approach to extract basic coverage info from the XML file
+            val xmlContent = xmlFile.readText()
+            
+            // Create a map to store coverage data
+            val coverageData = mutableMapOf<String, Any>()
+            
+            // Extract instruction coverage
+            val instructionPattern = """<counter type="INSTRUCTION" missed="(\d+)" covered="(\d+)"/>""".toRegex()
+            val instructionMatch = instructionPattern.find(xmlContent)
+            
+            if (instructionMatch != null) {
+                val missed = instructionMatch.groupValues[1].toInt()
+                val covered = instructionMatch.groupValues[2].toInt()
+                val total = missed + covered
+                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
+                
+                coverageData["instructions"] = mapOf(
+                    "missed" to missed,
+                    "covered" to covered, 
+                    "total" to total,
+                    "percentage" to percentage
+                )
+                
+                coverageData["overallCoverage"] = percentage
+            }
+            
+            // Extract line coverage 
+            val linePattern = """<counter type="LINE" missed="(\d+)" covered="(\d+)"/>""".toRegex()
+            val lineMatch = linePattern.find(xmlContent)
+            
+            if (lineMatch != null) {
+                val missed = lineMatch.groupValues[1].toInt()
+                val covered = lineMatch.groupValues[2].toInt()
+                val total = missed + covered
+                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
+                
+                coverageData["lines"] = mapOf(
+                    "missed" to missed,
+                    "covered" to covered, 
+                    "total" to total,
+                    "percentage" to percentage
+                )
+            }
+            
+            // Extract branch coverage
+            val branchPattern = """<counter type="BRANCH" missed="(\d+)" covered="(\d+)"/>""".toRegex()
+            val branchMatch = branchPattern.find(xmlContent)
+            
+            if (branchMatch != null) {
+                val missed = branchMatch.groupValues[1].toInt()
+                val covered = branchMatch.groupValues[2].toInt()
+                val total = missed + covered
+                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
+                
+                coverageData["branches"] = mapOf(
+                    "missed" to missed,
+                    "covered" to covered, 
+                    "total" to total,
+                    "percentage" to percentage
+                )
+            }
+            
+            // Add timestamp
+            coverageData["timestamp"] = System.currentTimeMillis()
+            
+            // Write JSON to file
+            val json = groovy.json.JsonOutput.toJson(coverageData)
+            val prettyJson = groovy.json.JsonOutput.prettyPrint(json)
+            
+            jsonFile.parentFile.mkdirs()
+            jsonFile.writeText(prettyJson)
+            
+            println("JSON coverage report generated at: ${jsonFile.absolutePath}")
+        } else {
+            println("XML report not found at: ${xmlFile.absolutePath}")
+            throw GradleException("JaCoCo XML report not found. Run jacocoTestReport first.")
+        }
+    }
+}
