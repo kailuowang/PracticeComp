@@ -186,70 +186,57 @@ tasks.register("generateCoverageJson") {
         val jsonFile = file("$buildDir/reports/jacoco/coverage-summary.json")
         
         if (xmlFile.exists()) {
-            // Use a simple approach to extract basic coverage info from the XML file
+            // Use a better approach to extract the full coverage metrics
             val xmlContent = xmlFile.readText()
             
             // Create a map to store coverage data
             val coverageData = mutableMapOf<String, Any>()
             
-            // Extract instruction coverage
-            val instructionPattern = """<counter type="INSTRUCTION" missed="(\d+)" covered="(\d+)"/>""".toRegex()
-            val instructionMatch = instructionPattern.find(xmlContent)
+            // Extract coverage for all counter types
+            val counterTypes = listOf("INSTRUCTION", "BRANCH", "LINE", "COMPLEXITY", "METHOD", "CLASS")
+            val countersMap = mutableMapOf<String, Map<String, Any>>()
             
-            if (instructionMatch != null) {
-                val missed = instructionMatch.groupValues[1].toInt()
-                val covered = instructionMatch.groupValues[2].toInt()
-                val total = missed + covered
-                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
+            // Process each counter type
+            for (type in counterTypes) {
+                // Look for the report-level counter (should be at the end of the file, so using lastMatch)
+                val pattern = """<counter type="$type" missed="(\d+)" covered="(\d+)"/>""".toRegex()
+                val allMatches = pattern.findAll(xmlContent).toList()
                 
-                coverageData["instructions"] = mapOf(
-                    "missed" to missed,
-                    "covered" to covered, 
-                    "total" to total,
-                    "percentage" to percentage
-                )
-                
-                coverageData["overallCoverage"] = percentage
+                // If there are matches, use the last one (typically the summary counter)
+                if (allMatches.isNotEmpty()) {
+                    val match = allMatches.last()
+                    val missed = match.groupValues[1].toInt()
+                    val covered = match.groupValues[2].toInt()
+                    val total = missed + covered
+                    val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
+                    
+                    // Store in a normalized format (lowercase key)
+                    val key = type.toLowerCase()
+                    countersMap[key] = mapOf(
+                        "missed" to missed,
+                        "covered" to covered, 
+                        "total" to total,
+                        "percentage" to percentage
+                    )
+                }
             }
             
-            // Extract line coverage 
-            val linePattern = """<counter type="LINE" missed="(\d+)" covered="(\d+)"/>""".toRegex()
-            val lineMatch = linePattern.find(xmlContent)
+            // Add all counters to the coverage data
+            coverageData["coverage"] = countersMap
             
-            if (lineMatch != null) {
-                val missed = lineMatch.groupValues[1].toInt()
-                val covered = lineMatch.groupValues[2].toInt()
-                val total = missed + covered
-                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
-                
-                coverageData["lines"] = mapOf(
-                    "missed" to missed,
-                    "covered" to covered, 
-                    "total" to total,
-                    "percentage" to percentage
-                )
+            // Set overall coverage based on instruction coverage (industry standard)
+            val instructionCoverage = countersMap["instruction"]
+            if (instructionCoverage != null) {
+                coverageData["overallCoverage"] = instructionCoverage["percentage"] ?: 0.0
+            } else {
+                coverageData["overallCoverage"] = 0.0
             }
             
-            // Extract branch coverage
-            val branchPattern = """<counter type="BRANCH" missed="(\d+)" covered="(\d+)"/>""".toRegex()
-            val branchMatch = branchPattern.find(xmlContent)
-            
-            if (branchMatch != null) {
-                val missed = branchMatch.groupValues[1].toInt()
-                val covered = branchMatch.groupValues[2].toInt()
-                val total = missed + covered
-                val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
-                
-                coverageData["branches"] = mapOf(
-                    "missed" to missed,
-                    "covered" to covered, 
-                    "total" to total,
-                    "percentage" to percentage
-                )
-            }
-            
-            // Add timestamp
-            coverageData["timestamp"] = System.currentTimeMillis()
+            // Add project information
+            coverageData["project"] = mapOf(
+                "name" to "PracticeComp",
+                "timestamp" to System.currentTimeMillis()
+            )
             
             // Write JSON to file
             val json = groovy.json.JsonOutput.toJson(coverageData)
@@ -258,7 +245,9 @@ tasks.register("generateCoverageJson") {
             jsonFile.parentFile.mkdirs()
             jsonFile.writeText(prettyJson)
             
+            // Print summary to console
             println("JSON coverage report generated at: ${jsonFile.absolutePath}")
+            println("Overall coverage: ${coverageData["overallCoverage"]}%")
         } else {
             println("XML report not found at: ${xmlFile.absolutePath}")
             throw GradleException("JaCoCo XML report not found. Run jacocoTestReport first.")
