@@ -19,6 +19,8 @@ This document outlines the planned and potential features for the Practice Compa
             *  [x] Unit tests for practice duration calculations by date/month
             *  [x] UI tests for calendar display and navigation
 
+*   [ ] **Session Goal** in the ongoing session screen, user can set a practice time goal, the value should be remembered as default for the next session. When practice time reach the goal, the app should make a "You did it!" voice. 
+
 ## Potential Future Features
 
 *   [ ] **Metronome:** A configurable metronome with tempo, time signature, and sound options.
