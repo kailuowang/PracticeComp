@@ -47,7 +47,7 @@ class PracticeTrackingService(
     private val CHANNEL_ID = "PracticeTrackingChannel"
     private val NOTIFICATION_ID = 1
     private val MODEL_NAME = "yamnet.tflite"
-    private val CLASSIFICATION_INTERVAL_MS = 500L // How often to classify audio
+    private val CLASSIFICATION_INTERVAL_MS = 1000L // How often to classify audio (changed to 1 second)
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
     private val MUSIC_CONFIDENCE_THRESHOLD = 0.7f // Increased threshold from 0.5f to 0.7f
     private val NON_PRACTICE_INTERVAL_MS = 8000L // Wait 8 seconds before considering practice stopped
