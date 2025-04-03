@@ -686,11 +686,8 @@ class PracticeTrackingService(
             Log.i(TAG, "Battery optimization status: ${if (isIgnoringBatteryOptimizations) "IGNORED (good)" else "ENABLED (may restrict service)"}")
             
             if (!isIgnoringBatteryOptimizations && isDebugMode()) {
-                // In debug mode, notify about potential issue
-                handleException(
-                    Exception("Battery optimization may restrict service"),
-                    "Performance Warning"
-                )
+                // In debug mode, log a warning instead of creating an exception
+                Log.w(TAG, "Performance Warning: Battery optimization is enabled and may restrict service")
             }
         } else {
             Log.i(TAG, "Device running Android < 6.0, no battery optimization check needed")
