@@ -19,7 +19,8 @@ This document outlines the planned and potential features for the Practice Compa
             *  [x] Unit tests for practice duration calculations by date/month
             *  [x] UI tests for calendar display and navigation
 
-*   [ ] **Session Goal** in the ongoing session screen, user can set a practice time goal, the value should be remembered as default for the next session. When practice time reach the goal, the app should make a "You did it!" voice. 
+*   [x] **Session Time Goal** in the ongoing session screen, user can set a practice time goal, the value should be remembered as default for the next session. When practice time reach the goal, the app should make a "You did it!" voice. 
+*   [ ] **Session Technical Goals** Technical goals are different from time goals, they are specific goals that the user set to achieve during the practice session, for examples, "memorize bar 24 to 36", or "improve the phrasing in page 3 line 3". User should be able to add such goals during a session through voice command. Here is how. First when the music stops, and when speech is detected, app should do a voice to text to monitor what the user is saying, if the user says "Add a goal", the app will display a text input and start to display the text from the user's voice. If the user starts playing, or silent for 10 seconds, save the text as a session goal and assign it with a goal number, plays a voice confirmation with the new goal number. If the user says "cancel", then cancel the action. Technical goals should be displayed in the session screen. 
 
 ## Potential Future Features
 
