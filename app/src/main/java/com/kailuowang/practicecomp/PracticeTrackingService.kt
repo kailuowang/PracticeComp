@@ -181,6 +181,7 @@ class PracticeTrackingService(
         lastMusicDetectionTimeMillis = 0L
         isPendingMusicStop = false
         goalReachedAnnounced = false
+        lastAnnouncedMilestone = 0 // Reset milestone tracking
     }
 
     @SuppressLint("MissingPermission")
@@ -474,7 +475,36 @@ class PracticeTrackingService(
                  
                  // Set flag to not repeat announcement
                  goalReachedAnnounced = true
+             } else {
+                 // Time reminder feature: Announce progress at 25%, 50%, 75% intervals
+                 checkProgressMilestones(currentDisplayTime, goalMillis, currentState.goalMinutes)
              }
+         }
+     }
+     
+     // Track progress milestones at 25% intervals
+     private var lastAnnouncedMilestone = 0
+     
+     private fun checkProgressMilestones(currentDisplayTime: Long, goalMillis: Long, goalMinutes: Int) {
+         // Calculate current progress percentage
+         val progressPercentage = (currentDisplayTime * 100 / goalMillis).toInt()
+         
+         // Check if we've hit a new 25% milestone
+         val currentMilestone = progressPercentage / 25
+         
+         // Only announce if this is a new milestone (25%, 50%, or 75%)
+         if (currentMilestone > lastAnnouncedMilestone && currentMilestone in 1..3) {
+             // Calculate minutes left
+             val minutesLeft = goalMinutes - (goalMinutes * progressPercentage / 100)
+             
+             // Log the milestone
+             Log.d(TAG, "Practice milestone reached: ${currentMilestone * 25}%, $minutesLeft minutes left")
+             
+             // Announce the milestone
+             speakText("Good progress! $minutesLeft minutes left.")
+             
+             // Update the last announced milestone
+             lastAnnouncedMilestone = currentMilestone
          }
      }
 
