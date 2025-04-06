@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -221,6 +222,9 @@ fun PracticeListScreen(
     // Check if service is running
     val isServiceRunning = remember { mutableStateOf(false) }
     
+    // State for showing version info dialog
+    var showVersionInfo by remember { mutableStateOf(false) }
+    
     // Check if the service is running
     LaunchedEffect(Unit) {
         isServiceRunning.value = PracticeTrackingService.isServiceRunning
@@ -233,6 +237,13 @@ fun PracticeListScreen(
         viewModel.refreshSessions()
     }
     
+    // Display version info dialog when needed
+    if (showVersionInfo) {
+        VersionInfoDialog(
+            onDismiss = { showVersionInfo = false }
+        )
+    }
+    
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -241,6 +252,15 @@ fun PracticeListScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
+                navigationIcon = {
+                    // Info icon in the top left corner
+                    IconButton(onClick = { showVersionInfo = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "App Information"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onCalendarClick) {
                         Icon(
@@ -835,4 +855,50 @@ fun PracticeSessionScreenPreview() {
              onEndSession = {}
         )
     }
+}
+
+@Composable
+fun VersionInfoDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val packageInfo = remember {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName, 
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    val versionName = packageInfo?.versionName ?: "Unknown"
+    val versionCode = packageInfo?.longVersionCode?.toString() ?: "Unknown"
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Practice Companion",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column {
+                Text("Version: $versionName")
+                Text("Build: $versionCode")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("© 2024 KaiLuo Inc.")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
 }
