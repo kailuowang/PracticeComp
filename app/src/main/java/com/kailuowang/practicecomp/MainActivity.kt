@@ -892,7 +892,7 @@ fun VersionInfoDialog(onDismiss: () -> Unit) {
                 Text("Version: $versionName")
                 Text("Build: $versionCode")
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("© 2024 KaiLuo Inc.")
+                Text("© 2024 Kailuo Wang")
             }
         },
         confirmButton = {

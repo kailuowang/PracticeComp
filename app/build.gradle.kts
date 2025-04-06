@@ -8,6 +8,32 @@ plugins {
     id("jacoco")
 }
 
+// Function to increment and save the build number
+fun getAndIncrementBuildNumber(): Int {
+    val buildNumberFile = rootProject.file("buildNumber.properties")
+    var buildNumber = 1
+    
+    if (buildNumberFile.exists()) {
+        val properties = java.util.Properties()
+        properties.load(buildNumberFile.inputStream())
+        buildNumber = properties.getProperty("buildNumber", "1").toInt()
+    }
+    
+    // Only increment build number for release builds or when explicitly requested
+    if (gradle.startParameter.taskNames.any { it.contains("Release") } ||
+        project.hasProperty("incrementBuildNumber")) {
+        // Increment for next build
+        buildNumber++
+        
+        // Save the incremented number
+        val properties = java.util.Properties()
+        properties.setProperty("buildNumber", buildNumber.toString())
+        buildNumberFile.outputStream().use { properties.store(it, null) }
+    }
+    
+    return buildNumber
+}
+
 android {
     namespace = "com.kailuowang.practicecomp"
     compileSdk = 34
@@ -16,7 +42,7 @@ android {
         applicationId = "com.kailuowang.practicecomp"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        versionCode = getAndIncrementBuildNumber()
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
