@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,7 +17,7 @@ fun getAndIncrementBuildNumber(): Int {
     var buildNumber = 1
     
     if (buildNumberFile.exists()) {
-        val properties = java.util.Properties()
+        val properties = Properties()
         properties.load(buildNumberFile.inputStream())
         buildNumber = properties.getProperty("buildNumber", "1").toInt()
     }
@@ -26,7 +29,7 @@ fun getAndIncrementBuildNumber(): Int {
         buildNumber++
         
         // Save the incremented number
-        val properties = java.util.Properties()
+        val properties = Properties()
         properties.setProperty("buildNumber", buildNumber.toString())
         buildNumberFile.outputStream().use { properties.store(it, null) }
     }
@@ -247,7 +250,7 @@ tasks.register("generateCoverageJson") {
                     val percentage = if (total > 0) (covered.toDouble() / total.toDouble() * 100.0) else 0.0
                     
                     // Store in a normalized format (lowercase key)
-                    val key = type.toLowerCase()
+                    val key = type.lowercase()
                     countersMap[key] = mapOf(
                         "missed" to missed,
                         "covered" to covered, 
