@@ -695,6 +695,7 @@ class PracticeTrackingService(
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Make it more noticeable
             .setOngoing(true) // Make it non-dismissable
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Make visible on lock screen
             .build()
     }
 
