@@ -57,6 +57,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import android.content.Context
+import android.content.pm.PackageInfo
 
 // Define navigation routes
 object AppDestinations {
@@ -799,6 +801,59 @@ private fun stopTrackingService(context: android.content.Context) {
     context.stopService(intent)
 }
 
+// Helper function moved outside the Composable
+private fun getPackageInfo(context: Context): PackageInfo? {
+    return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+    } catch (e: Exception) {
+        // Log error or handle appropriately
+        null
+    }
+}
+
+@Composable
+fun VersionInfoDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    // Now calls the correctly scoped getPackageInfo function
+    val packageInfo = remember { getPackageInfo(context) } 
+
+    val versionName = packageInfo?.versionName ?: "Unknown"
+    val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        packageInfo?.longVersionCode?.toString() ?: "Unknown"
+    } else {
+        @Suppress("DEPRECATION")
+        packageInfo?.versionCode?.toString() ?: "Unknown"
+    }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Practice Companion",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column {
+                Text("Version: $versionName")
+                Text("Build: $versionCode")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("© 2024 Kailuo Wang")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
+}
+
 // --- Previews ---
 
 @Preview(showBackground = true, name = "List Screen - No Active Session")
@@ -855,50 +910,4 @@ fun PracticeSessionScreenPreview() {
              onEndSession = {}
         )
     }
-}
-
-@Composable
-fun VersionInfoDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val packageInfo = remember {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(
-                    context.packageName, 
-                    PackageManager.PackageInfoFlags.of(0)
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0)
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-    
-    val versionName = packageInfo?.versionName ?: "Unknown"
-    val versionCode = packageInfo?.longVersionCode?.toString() ?: "Unknown"
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Practice Companion",
-                style = MaterialTheme.typography.headlineSmall
-            )
-        },
-        text = {
-            Column {
-                Text("Version: $versionName")
-                Text("Build: $versionCode")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("© 2024 Kailuo Wang")
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
-            }
-        }
-    )
 }
