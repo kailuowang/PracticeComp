@@ -456,6 +456,29 @@ class PracticeTrackingService(
          
          // Check for goal reached
          checkGoalReached(currentDisplayTime)
+
+         // --- Update Foreground Notification ---
+         try {
+             val viewModel = PracticeAppContainer.provideViewModel(application)
+             val goalMinutes = viewModel.uiState.value.goalMinutes
+             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+             val remainingMillis = calculateRemainingMillis(currentDisplayTime, goalMinutes)
+             val notificationText = if (goalMinutes > 0) {
+                 "${formatMillisToMmSs(remainingMillis)} remaining"
+             } else {
+                 "Practiced: ${formatMillisToMmSs(currentDisplayTime)}"
+             }
+
+             // Re-use the existing notification creation logic but update the text
+             val updatedNotification = createNotification(notificationText)
+
+             notificationManager.notify(NOTIFICATION_ID, updatedNotification)
+             Log.d(TAG, "[updateUiTimer] Notification updated: $notificationText")
+         } catch (e: Exception) {
+             handleException(e, "Error updating notification")
+         }
+         // --- End Notification Update ---
      }
      
      // Check if practice goal has been reached and announce it
@@ -494,19 +517,30 @@ class PracticeTrackingService(
          
          // Only announce if this is a new milestone (25%, 50%, or 75%)
          if (currentMilestone > lastAnnouncedMilestone && currentMilestone in 1..3) {
-             // Calculate minutes left
-             val minutesLeft = goalMinutes - (goalMinutes * progressPercentage / 100)
+             // Calculate remaining time precisely
+             val remainingMillis = calculateRemainingMillis(currentDisplayTime, goalMinutes)
+             // Convert to nearest minute for the announcement
+             val remainingMinutesForAnnouncement = ((remainingMillis / 1000.0 / 60.0) + 0.5).toInt()
              
              // Log the milestone
-             Log.d(TAG, "Practice milestone reached: ${currentMilestone * 25}%, $minutesLeft minutes left")
+             Log.d(TAG, "Practice milestone reached: ${currentMilestone * 25}%, $remainingMinutesForAnnouncement minutes left (calculated)")
              
              // Announce the milestone
-             speakText("Good progress! $minutesLeft minutes left.")
+             speakText("Good progress! $remainingMinutesForAnnouncement minutes left.")
              
              // Update the last announced milestone
              lastAnnouncedMilestone = currentMilestone
          }
      }
+
+    // Helper function to calculate remaining milliseconds towards a goal
+    private fun calculateRemainingMillis(currentPracticeMillis: Long, goalMinutes: Int): Long {
+        if (goalMinutes <= 0) {
+            return 0L // No goal set or invalid goal
+        }
+        val goalMillis = goalMinutes * 60 * 1000L
+        return maxOf(0L, goalMillis - currentPracticeMillis)
+    }
 
     // --- Expose state for testing (use with caution, only for unit tests) ---
     // These allow tests to check internal state without reflection.
@@ -625,7 +659,8 @@ class PracticeTrackingService(
         }
     }
 
-    private fun createNotification(): Notification {
+    // Overload createNotification to accept dynamic text
+    private fun createNotification(contentText: String = "Tap to return to your practice session"): Notification {
         // Intent to open directly to the practice session screen when notification is tapped
         val notificationIntent = Intent(this, MainActivity::class.java).apply {
             // Add flags to clear any existing activities and start fresh
@@ -655,7 +690,7 @@ class PracticeTrackingService(
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Practice Companion")
-            .setContentText("Tap to return to your practice session")
+            .setContentText(contentText) // Use the provided or default content text
             .setSmallIcon(android.R.drawable.ic_media_play) // Use a built-in icon as placeholder
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Make it more noticeable
@@ -788,5 +823,13 @@ class PracticeTrackingService(
             // Catch and log, but don't crash - health check should be robust
             Log.e(TAG, "Error in health check", e)
         }
+    }
+
+    // Helper function to format milliseconds to MM:SS string
+    private fun formatMillisToMmSs(millis: Long): String {
+        val totalSeconds = millis / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 } 
