@@ -9,7 +9,7 @@ This document outlines the planned and potential features for the Practice Compa
         *  [x] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
     *  [x] **Accumulative play time display:** Display the accumulative play time for the current session in real time
     *  [x] **End:**  User can end a practice session 
-        *  [ ] **Automatic End** when the music has stopped for more than 20 minutes, the session automatically ends and set the session end time retroactively to when the music stopped.
+        *   [x] **Automatic End** After music stops for more than 20 minutes, the app should end the practice session and retroactively set the end time to when the music stops. 
     *  [x] **List of Practice Sessions:**  For each session, display the total wall clock time and play time. 
     *  [x] **Smart Pause Detection:** Continues tracking practice time during brief pauses (less than 8 seconds) to accommodate page turns, brief rests, etc.
     *  [x] **Background Session Tracking:** Practice sessions continue tracking even when the app is minimized or the screen is off, allowing for uninterrupted practice.
@@ -19,13 +19,16 @@ This document outlines the planned and potential features for the Practice Compa
             *  [x] Unit tests for month calendar utilities (first day index, weeks in month)
             *  [x] Unit tests for practice duration calculations by date/month
             *  [x] UI tests for calendar display and navigation
+    *  [x] **Customizable Settings:** A dedicated settings screen where users can customize important practice detection parameters:
+        *  [x] **Grace Period:** Configure how long to wait (1-60 seconds) before stopping the timer after music detection stops
+        *  [x] **Auto-End Threshold:** Adjust how long of silence (1-120 minutes) before automatically ending a session
 
 *   [x] **Session Time Goal** in the ongoing session screen, user can set a practice time goal, the value should be remembered as default for the next session. When practice time reach the goal, the app should make a "You did it!" voice. 
         * [x] **Time reminder** Whenever play time progressed by 25% of the session time goal, the app should say "Good progress! X minutes left." X stands for the minutes left for completing the session goal. 
-
+*   [ ] **Session Technical Goals** Technical goals are different from time goals, they are specific goals that the user set to achieve during the practice session, for examples, "memorize bar 24 to 36", or "improve the phrasing in page 3 line 3". User should be able to add such goals during a session through voice command. Here is how. First when the music stops, and when speech is detected, app should do a voice to text to monitor what the user is saying, if the user says "Add a goal", the app will display a text input and start to display the text from the user's voice. If the user starts playing, or silent for 10 seconds, save the text as a session goal and assign it with a goal number, plays a voice confirmation with the new goal number. If the user says "cancel", then cancel the action. Technical goals should be displayed in the session screen. 
 
 ## Potential Future Features
-*   [ ] **Session Technical Goals** Technical goals are different from time goals, they are specific goals that the user set to achieve during the practice session, for examples, "memorize bar 24 to 36", or "improve the phrasing in page 3 line 3". User should be able to add such goals during a session through voice command. Here is how. First when the music stops, and when speech is detected, app should do a voice to text to monitor what the user is saying, if the user says "Add a goal", the app will display a text input and start to display the text from the user's voice. If the user starts playing, or silent for 10 seconds, save the text as a session goal and assign it with a goal number, plays a voice confirmation with the new goal number. If the user says "cancel", then cancel the action. Technical goals should be displayed in the session screen. 
+
 *   [ ] **Metronome:** A configurable metronome with tempo, time signature, and sound options.
 *   [ ] **Sheet Music Viewer:** Display sheet music files (e.g., PDF, MusicXML).
 *   [ ] **Goal Setting:** Allow users to set practice goals (e.g., time per week, specific pieces).
