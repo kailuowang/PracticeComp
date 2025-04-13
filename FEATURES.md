@@ -9,6 +9,7 @@ This document outlines the planned and potential features for the Practice Compa
         *  [x] **Automatic Practice Log:** As a background process, listens to instrument sound and automatically log the duration of each playing
     *  [x] **Accumulative play time display:** Display the accumulative play time for the current session in real time
     *  [x] **End:**  User can end a practice session 
+        *  [ ] **Automatic End** when the music has stopped for more than 20 minutes, the session automatically ends and set the session end time retroactively to when the music stopped.
     *  [x] **List of Practice Sessions:**  For each session, display the total wall clock time and play time. 
     *  [x] **Smart Pause Detection:** Continues tracking practice time during brief pauses (less than 8 seconds) to accommodate page turns, brief rests, etc.
     *  [x] **Background Session Tracking:** Practice sessions continue tracking even when the app is minimized or the screen is off, allowing for uninterrupted practice.
