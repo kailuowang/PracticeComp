@@ -16,7 +16,9 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
+import android.util.Log
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 /**
  * Unit tests for the timer logic within PracticeTrackingService, using Robolectric.
@@ -33,6 +35,11 @@ class PracticeTrackingServiceTimerTest {
     private val testDispatcher = StandardTestDispatcher() // Use StandardTestDispatcher
     private lateinit var testClock: TestClock // Declare TestClock instance
 
+    // Mock executors for testing shutdown logic
+    private lateinit var mockClassificationExecutor: ScheduledExecutorService
+    private lateinit var mockUiUpdateExecutor: ScheduledExecutorService
+    private lateinit var mockHealthCheckExecutor: ScheduledExecutorService
+
     // Test implementation of the Clock interface using the scheduler
     inner class TestClock(private val scheduler: TestCoroutineScheduler) : Clock {
         override fun getCurrentTimeMillis(): Long = scheduler.currentTime
@@ -43,13 +50,34 @@ class PracticeTrackingServiceTimerTest {
         Dispatchers.setMain(testDispatcher)
         testClock = TestClock(testDispatcher.scheduler) // Create TestClock
         service = PracticeTrackingService(clock = testClock) // Inject TestClock into service
+        // Initialize executors directly (as onCreate is not called in unit test)
+        mockClassificationExecutor = Executors.newSingleThreadScheduledExecutor()
+        mockUiUpdateExecutor = Executors.newSingleThreadScheduledExecutor()
+        mockHealthCheckExecutor = Executors.newSingleThreadScheduledExecutor()
+        // Inject mock executors using reflection (or make executors internal/public)
+        // Using reflection for now to avoid changing service code visibility
+        setField(service, "classificationExecutor", mockClassificationExecutor)
+        setField(service, "uiUpdateExecutor", mockUiUpdateExecutor)
+        setField(service, "healthCheckExecutor", mockHealthCheckExecutor)
         // No need for ApplicationProvider here, Robolectric handles context
         DetectionStateHolder.resetState()
+        service.resetAutoEndTriggerFlagForTest() // Reset test flag before each test
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        // Shut down test executors
+        mockClassificationExecutor.shutdownNow()
+        mockUiUpdateExecutor.shutdownNow()
+        mockHealthCheckExecutor.shutdownNow()
+    }
+
+    // Helper function for setting private fields via reflection
+    private fun setField(target: Any, fieldName: String, value: Any) {
+        val field = target.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        field.set(target, value)
     }
 
     @Test
@@ -168,4 +196,46 @@ class PracticeTrackingServiceTimerTest {
         assertEquals("Reported time should be exactly the accumulated time", initialAccumulated, reportedTime)
      }
 
+    @Test
+    fun `updateTimerState WHEN silence exceeds threshold THEN triggers autoEndSession`() = runTest(testDispatcher) {
+        val scheduler = testDispatcher.scheduler
+        val initialPlayTime = TimeUnit.SECONDS.toMillis(10)
+        val gracePeriod = 8000L // 8 seconds
+        val autoEndThreshold = SettingsManager.DEFAULT_AUTO_END_THRESHOLD_MS // Use default from settings manager
+
+        // Setup: Start playing
+        service.setProcessingFlagForTest(true) // Simulate service being active
+        val startTime = scheduler.currentTime
+        service.setTimerStateForTest(isPlaying = true, startTime = startTime, accumulatedTime = 0L)
+        DetectionStateHolder.updateState(newStatus = "Practicing")
+        scheduler.advanceTimeBy(initialPlayTime)
+        
+        // 1. Silence detected - Start grace period
+        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
+        assertTrue("Timer should still be running during grace period", service.isMusicPlayingForTest())
+        assertFalse("Auto-end should not be triggered yet (grace period)", service.wasAutoEndTriggeredForTest())
+        
+        // 2. Advance past grace period
+        scheduler.advanceTimeBy(gracePeriod + 1000) // Go slightly beyond grace period
+        
+        // 3. Silence detected again - Stop timer
+        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
+        assertFalse("Timer should be stopped after grace period", service.isMusicPlayingForTest())
+        assertFalse("Auto-end should not be triggered yet (post grace period)", service.wasAutoEndTriggeredForTest())
+        
+        // Check accumulated time includes initial play + grace period
+        val expectedAccumulatedTime = initialPlayTime + gracePeriod
+        assertEquals("Accumulated time after grace period", expectedAccumulatedTime, service.getAccumulatedTimeMillisForTest())
+        
+        // 4. Advance past auto-end threshold (from when silence was first detected)
+        scheduler.advanceTimeBy(autoEndThreshold)
+        
+        Log.d("TEST_LOG", "Test: Before final silence detection call. Current scheduler time: ${scheduler.currentTime}")
+        // 5. Silence detected again - Should trigger auto-end
+        service.updateTimerState(detectedMusic = false, categoryLabel = "Silence", score = 0.1f)
+        
+        Log.d("TEST_LOG", "Test: After final silence detection call. Checking assertion...")
+        // Assertions
+        assertTrue("autoEndSession should have been triggered", service.wasAutoEndTriggeredForTest())
+    }
 }

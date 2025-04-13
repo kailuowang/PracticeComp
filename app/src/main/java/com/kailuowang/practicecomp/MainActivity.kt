@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,6 +66,7 @@ object AppDestinations {
     const val PRACTICE_LIST = "practiceList"
     const val PRACTICE_SESSION = "practiceSession"
     const val PRACTICE_CALENDAR = "practiceCalendar"
+    const val SETTINGS = "settings"
 }
 
 class MainActivity : ComponentActivity() {
@@ -156,6 +158,9 @@ fun PracticeApp(
                 },
                 onCalendarClick = {
                     navController.navigate(AppDestinations.PRACTICE_CALENDAR)
+                },
+                onSettingsClick = {
+                    navController.navigate(AppDestinations.SETTINGS)
                 }
             )
         }
@@ -174,6 +179,13 @@ fun PracticeApp(
         }
         composable(route = AppDestinations.PRACTICE_CALENDAR) {
             PracticeCalendarScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(route = AppDestinations.SETTINGS) {
+            SettingsScreen(
                 onBackClick = {
                     navController.popBackStack()
                 }
@@ -216,6 +228,7 @@ fun PracticeListScreen(
     isBackgroundSessionActive: Boolean,
     onResumeSession: () -> Unit,
     onCalendarClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: PracticeViewModel = viewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState()
@@ -264,6 +277,14 @@ fun PracticeListScreen(
                     }
                 },
                 actions = {
+                    // Settings icon
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings, 
+                            contentDescription = "Settings"
+                        )
+                    }
+                    // Calendar icon
                     IconButton(onClick = onCalendarClick) {
                         Icon(
                             imageVector = Icons.Default.DateRange, 
@@ -755,25 +776,12 @@ fun PracticeSessionScreen(
             // End Session Button - This stops the service and saves the session
             Button(
                 onClick = {
-                    if (isServiceRunning) {
-                        stopTrackingService(context)
-                        isServiceRunning = false
-                        
-                        // Save the session data ONLY when End Session button is clicked
-                        val totalTime = DetectionStateHolder.state.value.totalSessionTimeMillis
-                        val practiceTime = DetectionStateHolder.state.value.accumulatedTimeMillis
-                        
-                        // Only save if we have a meaningful practice session (more than 5 seconds)
-                        if (totalTime > 5000) {
-                            Log.d("PracticeSessionScreen", "Saving session from End button - Total: $totalTime, Practice: $practiceTime")
-                            viewModel.saveSession(totalTimeMillis = totalTime, practiceTimeMillis = practiceTime)
-                        } else {
-                            Log.d("PracticeSessionScreen", "Session too short to save (<= 5 sec): $totalTime")
-                        }
-                        
-                        // Navigate back after saving
-                        onEndSession()
-                    }
+                    // Stop the service. Saving logic is now handled within the service itself.
+                    stopTrackingService(context)
+                    isServiceRunning = false // Update UI state immediately
+                    
+                    // Navigate back
+                    onEndSession()
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
@@ -854,6 +862,180 @@ fun VersionInfoDialog(onDismiss: () -> Unit) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // State for settings values
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
+    
+    // State for individual settings
+    var gracePeriodSeconds by remember { 
+        mutableStateOf((settingsManager.getGracePeriodMs() / 1000).toString()) 
+    }
+    var autoEndMinutes by remember { 
+        mutableStateOf((settingsManager.getAutoEndThresholdMs() / (60 * 1000)).toString()) 
+    }
+    
+    // Validation state
+    var gracePeriodError by remember { mutableStateOf(false) }
+    var autoEndError by remember { mutableStateOf(false) }
+    
+    // Coroutine scope for saving
+    val scope = rememberCoroutineScope()
+    
+    // Function to validate and save settings
+    fun saveSettings() {
+        // Validate grace period (1-60 seconds)
+        val gracePeriodValue = gracePeriodSeconds.toIntOrNull() ?: 0
+        gracePeriodError = gracePeriodValue < 1 || gracePeriodValue > 60
+        
+        // Validate auto-end threshold (1-120 minutes)
+        val autoEndValue = autoEndMinutes.toIntOrNull() ?: 0
+        autoEndError = autoEndValue < 1 || autoEndValue > 120
+        
+        // If no errors, save settings
+        if (!gracePeriodError && !autoEndError) {
+            scope.launch {
+                settingsManager.setGracePeriodMs(gracePeriodValue * 1000L)
+                settingsManager.setAutoEndThresholdMs(autoEndValue * 60 * 1000L)
+            }
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Title
+            Text(
+                text = "Practice Detection Settings",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // Grace Period Setting
+            Column {
+                Text(
+                    text = "Grace Period",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "How long to wait before considering a practice stopped (in seconds)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = gracePeriodSeconds,
+                    onValueChange = { 
+                        // Only allow digits
+                        if (it.isEmpty() || it.all { c -> c.isDigit() }) {
+                            gracePeriodSeconds = it
+                            gracePeriodError = false
+                        }
+                    },
+                    label = { Text("Seconds") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = gracePeriodError,
+                    supportingText = if (gracePeriodError) {
+                        { Text("Must be between 1-60 seconds") }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            // Auto-End Threshold Setting
+            Column {
+                Text(
+                    text = "Auto-End Threshold",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "How long of silence before automatically ending the session (in minutes)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = autoEndMinutes,
+                    onValueChange = { 
+                        // Only allow digits
+                        if (it.isEmpty() || it.all { c -> c.isDigit() }) {
+                            autoEndMinutes = it
+                            autoEndError = false
+                        }
+                    },
+                    label = { Text("Minutes") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = autoEndError,
+                    supportingText = if (autoEndError) {
+                        { Text("Must be between 1-120 minutes") }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            // Save Button
+            Button(
+                onClick = { saveSettings() },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Save Settings")
+            }
+            
+            // Info Card
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "About These Settings",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Grace Period: When the app detects that you've stopped playing, it will wait this many seconds before stopping the timer. This prevents the timer from stopping during short pauses.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Auto-End Threshold: If no playing is detected for this amount of time, the session will automatically end to save battery.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
 // --- Previews ---
 
 @Preview(showBackground = true, name = "List Screen - No Active Session")
@@ -864,7 +1046,8 @@ fun PracticeListScreenPreview() {
             onStartPracticeClick = {}, 
             isBackgroundSessionActive = false, 
             onResumeSession = {}, 
-            onCalendarClick = {}
+            onCalendarClick = {},
+            onSettingsClick = {}
         )
     }
 }
@@ -877,7 +1060,8 @@ fun PracticeListScreenWithActiveSessionPreview() {
             onStartPracticeClick = {}, 
             isBackgroundSessionActive = true, 
             onResumeSession = {}, 
-            onCalendarClick = {}
+            onCalendarClick = {},
+            onSettingsClick = {}
         )
     }
 }
@@ -908,6 +1092,16 @@ fun PracticeSessionScreenPreview() {
         PracticeSessionScreen(
              viewModel = previewViewModel,
              onEndSession = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenPreview() {
+    PracticeCompTheme {
+        SettingsScreen(
+            onBackClick = {}
         )
     }
 }

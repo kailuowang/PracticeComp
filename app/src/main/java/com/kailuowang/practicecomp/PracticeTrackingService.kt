@@ -46,13 +46,17 @@ class PracticeTrackingService(
     private val TAG = "PracticeTrackingService"
     private val CHANNEL_ID = "PracticeTrackingChannel"
     private val NOTIFICATION_ID = 1
-    private val MODEL_NAME = "yamnet.tflite"
+    private val MODEL_NAME = "yamnet.tflite" // Keep this as a member variable
     private val CLASSIFICATION_INTERVAL_MS = 1000L // How often to classify audio (changed to 1 second)
     private val UI_UPDATE_INTERVAL_MS = 1000L // How often to update UI timer (1 second)
     private val MUSIC_CONFIDENCE_THRESHOLD = 0.7f // Increased threshold from 0.5f to 0.7f
-    private val NON_PRACTICE_INTERVAL_MS = 8000L // Wait 8 seconds before considering practice stopped
     private val HEALTH_CHECK_INTERVAL_MS = 30000L // Health check every 30 seconds
-
+    
+    // Settings - now initialized at runtime from SettingsManager
+    private lateinit var settingsManager: SettingsManager
+    private var gracePeriodMs: Long = SettingsManager.DEFAULT_GRACE_PERIOD_MS
+    private var autoEndThresholdMs: Long = SettingsManager.DEFAULT_AUTO_END_THRESHOLD_MS
+    
     private var audioRecord: AudioRecord? = null
     private var soundClassifier: AudioClassifier? = null
     private var tensorAudio: TensorAudio? = null
@@ -81,6 +85,11 @@ class PracticeTrackingService(
     private var lastMusicDetectionTimeMillis: Long = 0L // Track when music was last detected
     private var isPendingMusicStop: Boolean = false // Flag to track if we're in the "grace period"
 
+    // Test-only flag to verify auto-end was triggered
+    private var _wasAutoEndTriggered = false
+    internal fun wasAutoEndTriggeredForTest(): Boolean = _wasAutoEndTriggered
+    internal fun resetAutoEndTriggerFlagForTest() { _wasAutoEndTriggered = false }
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service onCreate")
@@ -89,8 +98,20 @@ class PracticeTrackingService(
         uiUpdateExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize UI timer executor
         healthCheckExecutor = Executors.newSingleThreadScheduledExecutor() // Initialize health check executor
         
+        // Initialize settings manager and load settings
+        settingsManager = SettingsManager(this)
+        loadSettings()
+        
         // Initialize TextToSpeech
         initializeTextToSpeech()
+    }
+    
+    // Load settings from the SettingsManager
+    private fun loadSettings() {
+        gracePeriodMs = settingsManager.getGracePeriodMs()
+        autoEndThresholdMs = settingsManager.getAutoEndThresholdMs()
+        
+        Log.d(TAG, "Loaded settings - Grace period: $gracePeriodMs ms, Auto-end threshold: $autoEndThresholdMs ms")
     }
     
     private fun initializeTextToSpeech() {
@@ -368,64 +389,76 @@ class PracticeTrackingService(
          val now = clock.getCurrentTimeMillis()
          
          if (detectedMusic) {
-             // Any music detection resets the pending stop flag
-             if (isPendingMusicStop) {
-                 Log.i(TAG, "Music detected during grace period - resetting grace period, continuing practice")
-             }
-             isPendingMusicStop = false
-             lastMusicDetectionTimeMillis = now
-             
-             if (!isMusicCurrentlyPlaying) {
-                 // Music Started (either first time or after a pause)
-                 isMusicCurrentlyPlaying = true
-                 musicStartTimeMillis = now // Use 'now' from injected clock
-                 val status = "Practicing"
-                 Log.i(TAG, "Music detected: $categoryLabel (Score: $score) - Starting timer")
-                 DetectionStateHolder.updateState(newStatus = status)
-             } else {
-                 // Music continues - update status if needed
-                 val status = "Practicing"
-                 Log.d(TAG, "Music continues: $categoryLabel (Score: $score) - Timer keeps running")
-                 DetectionStateHolder.updateState(newStatus = status)
-             }
+           // Music Detected Logic (Reset grace period, start/continue timer)
+           if (isPendingMusicStop) {
+               Log.i(TAG, "Music detected during grace period - resetting grace period, continuing practice")
+           }
+           isPendingMusicStop = false
+
+           if (!isMusicCurrentlyPlaying) {
+               // Music Started
+               isMusicCurrentlyPlaying = true
+               musicStartTimeMillis = now
+               Log.i(TAG, "Music detected: $categoryLabel (Score: $score) - Starting timer")
+               DetectionStateHolder.updateState(newStatus = "Practicing")
+           } else {
+               // Music continues
+               Log.d(TAG, "Music continues: $categoryLabel (Score: $score) - Timer keeps running")
+               DetectionStateHolder.updateState(newStatus = "Practicing") // Ensure status stays Practicing
+           }
          } else {
              // No music detected
+
+             // --- Check for Auto-End FIRST --- 
+             // Check if enough time has passed since the *last* music was heard
+             if (lastMusicDetectionTimeMillis > 0 && (now - lastMusicDetectionTimeMillis >= autoEndThresholdMs)) {
+                 Log.i(TAG, "TEST_LOG: Auto-end condition MET in updateTimerState. now=$now, lastMusic=$lastMusicDetectionTimeMillis, threshold=$autoEndThresholdMs")
+                 Log.i(TAG, "AUTO-END TRIGGERED: Total silence duration (${now - lastMusicDetectionTimeMillis} ms) exceeded threshold ($autoEndThresholdMs ms).")
+                 // The actual end time is when the grace period *would have finished* if it hadn't been interrupted by auto-end
+                 // Or simply, the time music last stopped + grace period duration
+                 val actualEndTime = lastMusicDetectionTimeMillis + gracePeriodMs 
+                 autoEndSession(actualEndTime)
+                 return // Stop further processing in this cycle
+             }
+             // --- End Check for Auto-End ---
+
              if (isMusicCurrentlyPlaying) {
                  // Check if we're in the grace period
                  if (!isPendingMusicStop) {
                      // First silence detection after music - start grace period
                      isPendingMusicStop = true
-                     lastMusicDetectionTimeMillis = now
-                     Log.i(TAG, "SILENCE DETECTED: Starting 8-second grace period (${NON_PRACTICE_INTERVAL_MS}ms) - KEEPING TIMER RUNNING")
+                     lastMusicDetectionTimeMillis = now // Set the time when silence *started*
+                     Log.i(TAG, "SILENCE DETECTED: Starting grace period (${gracePeriodMs}ms) - KEEPING TIMER RUNNING")
                      
                      // We still consider practice to be happening during grace period
                      // So we keep the status as "Practicing"
                      DetectionStateHolder.updateState(newStatus = "Practicing")
                  } else {
-                     // We're already in grace period, check if 8 seconds passed
+                     // We're already in grace period, check if grace period time passed
                      val silenceDuration = now - lastMusicDetectionTimeMillis
-                     if (silenceDuration >= NON_PRACTICE_INTERVAL_MS) {
-                         // Grace period over, stop the timer
-                         val elapsedMillis = now - musicStartTimeMillis
-                         if (elapsedMillis > 0) {
-                             accumulatedTimeMillis += elapsedMillis
+                     if (silenceDuration >= gracePeriodMs) {
+                         // Grace period over
+                         val practiceSegmentDuration = (lastMusicDetectionTimeMillis + gracePeriodMs) - musicStartTimeMillis
+                         if (practiceSegmentDuration > 0) {
+                             accumulatedTimeMillis += practiceSegmentDuration
+                             Log.i(TAG, "Grace period ended. Added practice segment of $practiceSegmentDuration ms.")
                          }
                          isMusicCurrentlyPlaying = false
                          musicStartTimeMillis = 0L
                          val status = "" // Empty string when not practicing
-                         Log.i(TAG, "GRACE PERIOD EXPIRED: No music for ${silenceDuration}ms (${NON_PRACTICE_INTERVAL_MS}ms threshold). " +
-                                 "Practice stopped. Added ${elapsedMillis}ms. Total: ${accumulatedTimeMillis}ms")
+                         Log.i(TAG, "GRACE PERIOD EXPIRED: No music for ${silenceDuration}ms (${gracePeriodMs}ms threshold). " +
+                                 "Practice stopped. Total accumulated: ${accumulatedTimeMillis}ms")
                          DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
                      } else {
                          // Still in grace period, CONTINUE counting as practice
-                         Log.i(TAG, "WITHIN GRACE PERIOD: Silence for ${silenceDuration}ms out of ${NON_PRACTICE_INTERVAL_MS}ms - KEEPING TIMER RUNNING")
+                         Log.i(TAG, "WITHIN GRACE PERIOD: Silence for ${silenceDuration}ms out of ${gracePeriodMs}ms - KEEPING TIMER RUNNING")
                          
                          // Critical: Keep showing practicing status during grace period
                          DetectionStateHolder.updateState(newStatus = "Practicing")
                      }
                  }
              } else {
-                 // Already not playing, just update state
+                 // Already not playing (and auto-end didn't trigger), just update state
                  val status = "" // Empty string when not practicing
                  Log.d(TAG, "No practice detected - Timer stopped")
                  DetectionStateHolder.updateState(newStatus = status, newTimeMillis = accumulatedTimeMillis)
@@ -568,28 +601,8 @@ class PracticeTrackingService(
         Log.d(TAG, "UI update executor shutdown state: isShutdown=${uiUpdateExecutor.isShutdown}, isTerminated=${uiUpdateExecutor.isTerminated}")
         Log.d(TAG, "Health check executor shutdown state: isShutdown=${healthCheckExecutor.isShutdown}, isTerminated=${healthCheckExecutor.isTerminated}")
 
-        // Stop timers first
-        // Use try-catch for shutdownNow in case they are already terminated
-        try { 
-            classificationExecutor.shutdownNow() 
-            Log.d(TAG, "Classification executor shutdown successfully")
-        } catch (e: Exception) { 
-            handleException(e, "Error shutting down classificationExecutor")
-        }
-        
-        try { 
-            uiUpdateExecutor.shutdownNow() 
-            Log.d(TAG, "UI update executor shutdown successfully")
-        } catch (e: Exception) { 
-            handleException(e, "Error shutting down uiUpdateExecutor")
-        }
-        
-        try { 
-            healthCheckExecutor.shutdownNow() 
-            Log.d(TAG, "Health check executor shutdown successfully")
-        } catch (e: Exception) { 
-            handleException(e, "Error shutting down healthCheckExecutor")
-        }
+        // Stop executors using the helper method
+        shutdownExecutors()
 
         // This now uses the injected clock via calculateFinalTime()
         val finalAccumulatedTime = calculateFinalTime()
@@ -600,12 +613,8 @@ class PracticeTrackingService(
         // Release audio resources
         releaseAudioResources()
 
-        // Update state holder AFTER calculating final time and releasing resources
-        DetectionStateHolder.updateState(
-            newStatus = "", 
-            newTimeMillis = finalAccumulatedTime,
-            newTotalSessionTimeMillis = finalSessionTime
-        )
+        // Save session using the centralized method before resetting state
+        saveSessionIfMeaningful(finalSessionTime, finalAccumulatedTime)
 
         resetTimerState() // Reset internal timer state variables
         Log.d(TAG, "Audio processing stopped and resources released. Final accumulated time: $finalAccumulatedTime ms, Total session time: $finalSessionTime ms")
@@ -832,5 +841,90 @@ class PracticeTrackingService(
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+    }
+
+    // Centralized saving logic
+    private fun saveSessionIfMeaningful(totalTimeMillis: Long, practiceTimeMillis: Long) {
+        if (totalTimeMillis > 5000) { // Use the same threshold (5 seconds)
+            try {
+                val viewModel = PracticeAppContainer.provideViewModel(application)
+                Log.d(TAG, "Saving session via ViewModel - Total: $totalTimeMillis, Practice: $practiceTimeMillis")
+                viewModel.saveSession(
+                    totalTimeMillis = totalTimeMillis,
+                    practiceTimeMillis = practiceTimeMillis
+                )
+            } catch (e: Exception) {
+                handleException(e, "Error saving session") // Generic error message
+            }
+        } else {
+            Log.d(TAG, "Session too short to save (Total: $totalTimeMillis ms)")
+        }
+    }
+
+    // Handles the automatic session end logic
+    private fun autoEndSession(actualEndTimeMillis: Long) {
+        Log.i(TAG, "TEST_LOG: Entering autoEndSession. actualEndTime=$actualEndTimeMillis")
+        if (!isProcessing) {
+            Log.w(TAG, "TEST_LOG: Exiting autoEndSession early because !isProcessing")
+            return // Avoid multiple triggers if already stopping
+        }
+        _wasAutoEndTriggered = true // Set test flag
+        Log.i(TAG, "Executing autoEndSession...")
+        isProcessing = false // Prevent further processing loop calls
+
+        // Shutdown executors immediately
+        shutdownExecutors()
+
+        // Practice time is already correctly calculated up to the end of the grace period
+        val finalPracticeTime = accumulatedTimeMillis
+
+        // Calculate final session time based on when music actually stopped (end of grace period)
+        val sessionStartTime = DetectionStateHolder.state.value.sessionStartTimeMillis
+        val finalTotalSessionTime = if (sessionStartTime > 0) {
+            actualEndTimeMillis - sessionStartTime
+        } else {
+             Log.w(TAG, "Session start time was not positive during auto-end. Total time set to 0.")
+            0L // Fallback, should ideally not happen if service started correctly
+        }
+
+        // Log final values
+        Log.d(TAG, "Auto-ending session. Actual End Time (end of grace period): $actualEndTimeMillis, Start Time: $sessionStartTime")
+        Log.d(TAG, "Final Practice Time: $finalPracticeTime ms, Final Total Session Time: $finalTotalSessionTime ms")
+
+        // Release audio resources
+        releaseAudioResources()
+
+        // Save session using the centralized method
+        saveSessionIfMeaningful(finalTotalSessionTime, finalPracticeTime)
+
+        // Update state holder to reflect stopped state (optional but good practice)
+        // Use specific status to indicate auto-end if needed later
+        DetectionStateHolder.updateState(
+            newStatus = "Session Auto-Ended", 
+            newTimeMillis = finalPracticeTime,
+            newTotalSessionTimeMillis = finalTotalSessionTime
+        )
+
+        // Reset internal timer state variables (might be redundant with service stopping)
+        resetTimerState()
+
+        // Stop the service itself
+        Log.i(TAG, "Stopping service due to auto-end.")
+        stopSelf() // This will eventually trigger onDestroy
+    }
+
+    // Helper to shutdown executors cleanly
+    private fun shutdownExecutors() {
+        Log.d(TAG, "Shutting down executors...")
+        if (!classificationExecutor.isShutdown) {
+            try { classificationExecutor.shutdownNow() } catch (e: Exception) { handleException(e, "Error shutting down classificationExecutor") }
+        }
+        if (!uiUpdateExecutor.isShutdown) {
+            try { uiUpdateExecutor.shutdownNow() } catch (e: Exception) { handleException(e, "Error shutting down uiUpdateExecutor") }
+        }
+        if (!healthCheckExecutor.isShutdown) {
+            try { healthCheckExecutor.shutdownNow() } catch (e: Exception) { handleException(e, "Error shutting down healthCheckExecutor") }
+        }
+        Log.d(TAG, "Executors shut down.")
     }
 } 
