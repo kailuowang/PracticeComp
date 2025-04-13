@@ -102,13 +102,18 @@ android {
             isIncludeAndroidResources = true
             all {
                 test ->
+                // Enable Robolectric logging to stdout
+                test.systemProperty("robolectric.logging.enabled", "true")
+                // Force Robolectric logging to stdout
+                test.systemProperty("robolectric.logging", "stdout")
+
                 test.testLogging {
                     events = setOf(
                         org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED,
                         org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED,
                         org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
-                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT,
-                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_ERROR
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT, // Ensure stdout is logged
+                        org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_ERROR // Ensure stderr is logged
                     )
                     showStandardStreams = true
                     exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
@@ -143,6 +148,7 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core.ktx)
 
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.junit)
