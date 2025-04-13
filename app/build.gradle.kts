@@ -46,7 +46,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = getAndIncrementBuildNumber()
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -65,7 +65,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true // Add this line
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -134,6 +135,8 @@ dependencies {
     
     implementation("org.tensorflow:tensorflow-lite-task-audio:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    // Explicitly add AutoValue annotations dependency (often needed with ProGuard)
+    implementation("com.google.auto.value:auto-value-annotations:1.10.1")
     
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

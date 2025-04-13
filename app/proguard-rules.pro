@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep AutoValue classes used by TensorFlow Lite Support library
+# Keep AutoValue classes, interfaces, and their members used by TensorFlow Lite Support library
+-keep class com.google.auto.value.** { *; }
