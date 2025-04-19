@@ -36,5 +36,3 @@ I may update this Privacy Policy in the future. Any changes will be reflected by
 If you have any questions about this Privacy Policy, please contact me, Kailuo Wang, at:
 
 me@kwang.us
-
-[Back to Home](./README.md) 
