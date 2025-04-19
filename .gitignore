@@ -19,3 +19,12 @@ local.properties
 *.keystore
 *.jks
 app/release/
+
+# Jekyll site
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+# Bundler files
+.bundle/
+vendor/

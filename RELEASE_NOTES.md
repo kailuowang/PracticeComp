@@ -28,4 +28,4 @@ Welcome to the first release of the Practice Companion App! This version focuses
 
 We hope these features help make your practice sessions more productive and trackable. Happy practicing!
 
-[Back to Home](/)
+[Back to Home](./README.md)

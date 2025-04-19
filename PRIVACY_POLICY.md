@@ -37,4 +37,4 @@ If you have any questions about this Privacy Policy, please contact me, Kailuo W
 
 me@kwang.us
 
-[Back to Home](/) 
+[Back to Home](./README.md) 
