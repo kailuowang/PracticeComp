@@ -20,10 +20,8 @@ Any information you create, input, or manage within Practice Companion, such as 
 
 **4\. Permissions**
 
-\[**Optional Section:** Include this section ONLY if your app requires specific permissions (e.g., storage access to save/load data). If it requires no permissions beyond basic function, you can state that here or omit the section.\]
+The App requests permission to access your device's microphone. This permission is solely utilized for the purpose of monitoring your practice. Audio data is not stored after each practice session. This data is not accessed or transmitted externally by the developer.  
 
-Example if Storage permission is needed:  
-The App may request permission to access your device's storage. This permission is solely utilized for the purpose of saving and loading your practice data directly onto your device's local storage. This data is not accessed or transmitted externally by the developer.  
 **5\. Changes to This Privacy Policy**
 
 I may update this Privacy Policy in the future. Any changes will be reflected by updating the "Effective Date" at the top of this policy. You are encouraged to review this policy periodically.
