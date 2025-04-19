@@ -1,3 +1,8 @@
+---
+title: Release Notes
+layout: default
+---
+
 # Practice Companion App - Initial Release Notes (v1.0.0)
 
 Welcome to the first release of the Practice Companion App! This version focuses on providing a seamless and insightful practice tracking experience.
@@ -22,3 +27,5 @@ Welcome to the first release of the Practice Companion App! This version focuses
     *   **Progress Reminders:** Stay motivated with voice updates ("Good progress! X minutes left.") as you progress through 25% increments of your goal.
 
 We hope these features help make your practice sessions more productive and trackable. Happy practicing!
+
+[Back to Home](/)
