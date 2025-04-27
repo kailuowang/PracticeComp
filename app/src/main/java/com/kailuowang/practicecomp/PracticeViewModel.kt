@@ -127,8 +127,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
     }
 
-    // Save a completed practice session
-    fun saveSession(totalTimeMillis: Long, practiceTimeMillis: Long) {
+    // Save a completed practice session with technical goals
+    fun saveSession(totalTimeMillis: Long, practiceTimeMillis: Long, targetedGoalIds: List<String> = emptyList()) {
         if (totalTimeMillis <= 0) {
             Log.w("PracticeViewModel", "Attempted to save session with zero or negative total time, ignoring")
             return
@@ -137,10 +137,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val newSession = PracticeSession(
             date = LocalDateTime.now(),
             totalTimeMillis = totalTimeMillis,
-            practiceTimeMillis = practiceTimeMillis
+            practiceTimeMillis = practiceTimeMillis,
+            targetedGoalIds = targetedGoalIds
         )
         
-        Log.d("PracticeViewModel", "Saving session - Total: ${newSession.getFormattedTotalTime()}, Practice: ${newSession.getFormattedPracticeTime()}")
+        Log.d("PracticeViewModel", "Saving session - Total: ${newSession.getFormattedTotalTime()}, " +
+              "Practice: ${newSession.getFormattedPracticeTime()}, " +
+              "Targeted Goals: ${targetedGoalIds.size}")
         
         // Save immediately to both memory and SharedPreferences
         saveSessionImmediate(newSession)
@@ -206,6 +209,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             put("date", session.date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             put("totalTimeMillis", session.totalTimeMillis)
             put("practiceTimeMillis", session.practiceTimeMillis)
+            
+            // Add the targeted goal IDs as a JSON array
+            val goalIdsArray = JSONArray()
+            session.targetedGoalIds.forEach { goalId ->
+                goalIdsArray.put(goalId)
+            }
+            put("targetedGoalIds", goalIdsArray)
         }
     }
     
@@ -216,11 +226,21 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val totalTimeMillis = json.getLong("totalTimeMillis")
         val practiceTimeMillis = json.getLong("practiceTimeMillis")
         
+        // Extract the targeted goal IDs
+        val targetedGoalIds = mutableListOf<String>()
+        if (json.has("targetedGoalIds")) {
+            val goalIdsArray = json.getJSONArray("targetedGoalIds")
+            for (i in 0 until goalIdsArray.length()) {
+                targetedGoalIds.add(goalIdsArray.getString(i))
+            }
+        }
+        
         return PracticeSession(
             id = id,
             date = date,
             totalTimeMillis = totalTimeMillis,
-            practiceTimeMillis = practiceTimeMillis
+            practiceTimeMillis = practiceTimeMillis,
+            targetedGoalIds = targetedGoalIds
         )
     }
     
@@ -366,6 +386,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             // Zero case
             else -> "0s"
         }
+    }
+
+    // For Technical Goals feature - Get the technical goals for a specific session
+    fun getTargetedGoalIdsForSession(sessionId: String): List<String> {
+        return _sessions.value
+            .find { it.id == sessionId }
+            ?.targetedGoalIds ?: emptyList()
     }
 
     // TODO: Add methods to start/stop session, update timer, etc.

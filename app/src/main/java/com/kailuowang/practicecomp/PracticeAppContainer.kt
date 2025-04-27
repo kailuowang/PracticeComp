@@ -9,18 +9,36 @@ import android.util.Log
  */
 object PracticeAppContainer {
     private var viewModel: PracticeViewModel? = null
+    private var goalsViewModel: GoalsViewModel? = null
     
     // Provide the singleton instance of PracticeViewModel
     fun provideViewModel(application: Application): PracticeViewModel {
         if (viewModel == null) {
-            Log.d("PracticeAppContainer", "Creating new ViewModel instance")
+            Log.d("PracticeAppContainer", "Creating new PracticeViewModel instance")
             viewModel = PracticeViewModel(application)
         }
         return viewModel!!
     }
     
-    // Optional: Clear the ViewModel instance if needed (e.g. for testing)
+    // Provide the singleton instance of GoalsViewModel
+    fun provideGoalsViewModel(application: Application): GoalsViewModel {
+        if (goalsViewModel == null) {
+            Log.d("PracticeAppContainer", "Creating new GoalsViewModel instance")
+            goalsViewModel = GoalsViewModel(application)
+        }
+        return goalsViewModel!!
+    }
+    
+    // For backward compatibility with existing code
     fun clearViewModel() {
         viewModel = null
+        Log.d("PracticeAppContainer", "Cleared PracticeViewModel instance")
+    }
+    
+    // Clear all ViewModel instances (e.g. for testing)
+    fun clearViewModels() {
+        viewModel = null
+        goalsViewModel = null
+        Log.d("PracticeAppContainer", "Cleared all ViewModel instances")
     }
 } 

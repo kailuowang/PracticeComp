@@ -12,7 +12,8 @@ data class PracticeSession(
     val id: String = System.currentTimeMillis().toString(),
     val date: LocalDateTime = LocalDateTime.now(),
     val totalTimeMillis: Long = 0,
-    val practiceTimeMillis: Long = 0
+    val practiceTimeMillis: Long = 0,
+    val targetedGoalIds: List<String> = emptyList() // IDs of technical goals targeted in this session
 ) {
     
     // Display formatting methods
