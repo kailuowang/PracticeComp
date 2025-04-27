@@ -59,76 +59,111 @@ This document outlines the technical approach and considerations for implementin
 
 ## Technical Goals Implementation Plan
 
+This plan outlines the steps to implement the Technical Goals feature as specified in FEATURES.md.
+
 ### 1. Data Model Changes
 
 #### Create a TechnicalGoal.kt data class:
+- **File:** `app/src/main/java/com/example/practicecompanion/data/TechnicalGoal.kt` (or similar path in your data layer)
 ```kotlin
 data class TechnicalGoal(
-    val id: String = System.currentTimeMillis().toString(),
+    val id: String = UUID.randomUUID().toString(), // Use UUID for uniqueness
     val description: String,
     val createdDate: LocalDateTime = LocalDateTime.now(),
+    val lastModifiedDate: LocalDateTime = LocalDateTime.now(), // For editing
     val achievedDate: LocalDateTime? = null,
     val isAchieved: Boolean = false
 )
 ```
+*   **Note:** Using UUID for `id` ensures better uniqueness than `System.currentTimeMillis()`. Added `lastModifiedDate`.
 
 #### Update PracticeSession.kt to include technical goals:
-- Add a list of goals targeted for each session
-- Add methods to manage goals for the session
+- **File:** `app/src/main/java/com/example/practicecompanion/data/PracticeSession.kt` (or similar path)
+- Add a `List<String>` property, e.g., `targetedGoalIds`, to store the IDs of goals selected for this session.
 
 ### 2. ViewModel Enhancements
 
-#### Modify PracticeViewModel.kt to:
-- Add state flows for:
-  - All technical goals (achieved and not achieved)
-  - Outstanding goals (not achieved)
-  - Current session's targeted goals
-- Add methods to:
-  - Create new technical goals
-  - Mark goals as achieved/not achieved
-  - Select goals for a session
-  - Persist goals to SharedPreferences (similar to sessions)
-  - Load goals from SharedPreferences
+#### Modify PracticeViewModel.kt (or create a dedicated GoalsViewModel):
+- **File:** `app/src/main/java/com/example/practicecompanion/ui/practice/PracticeViewModel.kt` (if adding to existing) OR `app/src/main/java/com/example/practicecompanion/ui/goals/GoalsViewModel.kt` (if creating new). Creating a dedicated `GoalsViewModel` is likely cleaner.
+- Add `StateFlow` or `LiveData` for goal lists (all, outstanding, session-targeted).
+- Implement public functions for CRUD operations (create, edit description, delete, toggle achievement), goal selection for sessions, and handling duplicates. These functions will interact with the storage layer (Repository/DAO).
 
 ### 3. UI Components
 
+#### Define Navigation:
+- **File:** `app/src/main/java/com/example/practicecompanion/ui/navigation/AppNavigation.kt` (or your navigation graph XML/composable structure).
+- Add a new route/destination for the `Technical Goals List Screen`. Decide how to link it (e.g., add a button to the main screen/bottom navigation bar, add an item in a settings menu).
+
 #### Create Technical Goals List Screen:
-- List view of all goals with filtering options (all/outstanding/achieved)
-- Ability to add new goals with text input
-- Ability to mark goals as achieved/not achieved
+- **Files:**
+    - **Composable:** `app/src/main/java/com/example/practicecompanion/ui/goals/GoalsScreen.kt` (containing the main composable function, e.g., `GoalsScreen`).
+    - **ViewModel:** `GoalsViewModel.kt` (as mentioned above).
+- Implement using Jetpack Compose:
+    - Use a `LazyColumn` to display the list of goals.
+    - Include filtering controls (e.g., `FilterChip` or `TabRow`).
+    - Add a `FloatingActionButton` or `Button` to trigger adding new goals.
+    - Each item should allow editing (e.g., opens a dialog/new screen) and deleting (e.g., swipe-to-delete or button with confirmation dialog).
+    - Allow toggling `isAchieved` status (e.g., `Checkbox` or `Switch` on each item).
+
+#### Create Goal Creation/Editing UI:
+- **Files:**
+    - **Composable:** Could be a `Dialog` composable within `GoalsScreen.kt` or a separate screen `app/src/main/java/com/example/practicecompanion/ui/goals/EditGoalScreen.kt`.
+- Implement a `TextField` for the description and `Button`s for Save/Cancel.
 
 #### Create Goal Selection Dialog:
-- When starting a session, show a dialog with outstanding goals
-- Allow users to select which goals to target for the session
-- Include a way to add new goals from this dialog
+- **File:** `app/src/main/java/com/example/practicecompanion/ui/practice/PracticeScreen.kt` (or wherever the session start logic resides).
+- Implement as a `Dialog` composable shown before starting the session timer.
+- Display a list of outstanding goals (from `PracticeViewModel` or `GoalsViewModel`) with checkboxes.
+- Include an "Add New Goal" button linking to the goal creation UI.
 
 #### Update Session End Flow:
-- After ending a session, show a dialog with the session's targeted goals
-- Allow the user to mark which goals were achieved
-- Update goal status accordingly
+- **File:** `app/src/main/java/com/example/practicecompanion/ui/practice/PracticeScreen.kt` (or wherever the session end logic resides).
+- Implement as a `Dialog` composable shown when the session ends.
+- Display the `targetedGoalIds` for the *just-completed* session.
+- Allow marking them as achieved using checkboxes or buttons.
+- Call the appropriate ViewModel function to update the status in storage.
 
-#### Update Session Details:
-- Show targeted and achieved goals for each completed session in the session list
+#### Update Session Details View:
+- **File:** `app/src/main/java/com/example/practicecompanion/ui/history/SessionDetailScreen.kt` (or within the `SessionListScreen.kt` item).
+- Fetch the actual `TechnicalGoal` objects based on the `targetedGoalIds` stored in the `PracticeSession`.
+- Display the descriptions of targeted goals.
+- Indicate which were achieved during that session (this might require storing achieved status *per session* or cross-referencing the `achievedDate` of the goal).
 
 ### 4. Storage
 
-#### Enhance SharedPreferences Storage:
-- Add methods to save/load technical goals alongside sessions
-- Maintain relationships between sessions and their targeted goals
+#### Choose Persistence Strategy:
+
+- **Option A: SharedPreferences:**
+    - **File:** `app/src/main/java/com/example/practicecompanion/data/AppPreferencesRepository.kt` (or similar).
+    - Implement methods to save/load the list of `TechnicalGoal` objects, likely by serializing/deserializing to/from JSON using a library like `kotlinx.serialization` or Gson. Manage updates and deletions carefully.
+
+- **Option B: Room Database (Recommended):**
+    - **Files:**
+        - **Entity:** `app/src/main/java/com/example/practicecompanion/data/db/GoalEntity.kt` (Annotated version of `TechnicalGoal` or a dedicated entity class).
+        - **DAO:** `app/src/main/java/com/example/practicecompanion/data/db/GoalDao.kt` (Interface with `@Dao` annotation and methods for CRUD operations - insert, update, delete, query).
+        - **Database:** `app/src/main/java/com/example/practicecompanion/data/db/AppDatabase.kt` (Abstract class extending `RoomDatabase`). Update to include the `GoalEntity`.
+        - **Repository:** `app/src/main/java/com/example/practicecompanion/data/GoalsRepository.kt` (Optional, but recommended layer to abstract data source access from ViewModel).
+    - Define `@Entity` for goals.
+    - Define `@Dao` interface with `suspend` functions for DB operations (returning `Flow` for reactive updates is common).
+    - Update the `AppDatabase` definition.
+    - Implement a repository that uses the `GoalDao`.
+    - **Relationship:** To link sessions and goals, either add `List<String> targetedGoalIds` to the `SessionEntity` OR create a separate relationship table (`SessionGoalCrossRef`). Storing IDs in the session entity is often simpler for this use case.
 
 ### 5. Implementation Steps
 
-1. Create the TechnicalGoal data class
-2. Update PracticeViewModel to support goal management
-3. Implement goal persistence in SharedPreferences
-4. Create the UI for managing goals (add/view/mark as achieved)
-5. Implement goal selection at session start
-6. Implement goal achievement confirmation at session end
-7. Update session details to show goal information
-8. Add goal filtering and navigation in the app
+(These steps reference the files mentioned above)
+
+1.  **Choose Storage:** Decide and set up (basic `AppPreferencesRepository` or Room `Entity`, `DAO`, `Database` updates).
+2.  **Data Model:** Create/update `.kt` files in the `data` package.
+3.  **ViewModel:** Create/update `.kt` file(s) in the `viewmodel` or `ui` package.
+4.  **Storage Implementation:** Implement persistence logic in the Repository/DAO/Preferences file.
+5.  **UI - Goal Management:** Create `GoalsScreen.kt` and related composables/dialogs. Update navigation structure.
+6.  **UI - Session Start:** Implement dialog in `PracticeScreen.kt`.
+7.  **UI - Session End:** Implement dialog in `PracticeScreen.kt`.
+8.  **UI - Session Details:** Update composables in `history` package.
+9.  **Integration:** Connect UI event handlers (`onClick`, etc.) to ViewModel functions. Ensure ViewModels correctly call Repository/DAO methods.
 
 ### 6. Testing Plan
 
-- Unit tests for goal persistence and retrieval
-- UI tests for goal management
-- Integration tests for the session workflow with goals 
+- **Unit Tests:** Place in `app/src/test/java/...` corresponding package structure. Test ViewModels (using `TestCoroutineDispatcher`, mock repository), Repositories (mock DAO/Preferences), DAOs (using Room's in-memory database testing), utility functions.
+- **UI/Integration Tests:** Place in `app/src/androidTest/java/...`. Use Compose testing APIs (`createComposeRule`, `onNodeWithText`, `performClick`, etc.) and potentially Hilt/Espresso for testing navigation and full flows. 
