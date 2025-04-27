@@ -2,7 +2,7 @@
 
 This document outlines the planned and potential features for the Practice Companion app.
 
-## Core Features (MVP)
+## Core Features [MVP]
 
 *   [x] **Diary of Practice:**  
     *  [x] **Start:**  User can start a practice session
@@ -25,7 +25,15 @@ This document outlines the planned and potential features for the Practice Compa
 
 *   [x] **Session Time Goal** in the ongoing session screen, user can set a practice time goal, the value should be remembered as default for the next session. When practice time reach the goal, the app should make a "You did it!" voice. 
         * [x] **Time reminder** Whenever play time progressed by 25% of the session time goal, the app should say "Good progress! X minutes left." X stands for the minutes left for completing the session goal. 
-*   [ ] **Session Technical Goals** Technical goals are different from time goals, they are specific goals that the user set to achieve during the practice session, for examples, "memorize bar 24 to 36", or "improve the phrasing in page 3 line 3". User should be able to add such goals during a session through voice command. Here is how. First when the music stops, and when speech is detected, app should do a voice to text to monitor what the user is saying, if the user says "Add a goal", the app will display a text input and start to display the text from the user's voice. If the user starts playing, or silent for 10 seconds, save the text as a session goal and assign it with a goal number, plays a voice confirmation with the new goal number. If the user says "cancel", then cancel the action. Technical goals should be displayed in the session screen. 
+
+## 1.1 Features
+*   [ ] **Technical Goals** Technical goals are different from time goals, they are specific goals that the user set to achieve during the practice session, for examples, "memorize bar 24 to 36", or "improve the phrasing in page 3 line 3". 
+         *  [ ] User should be able to add/remove these technical goals at any time.
+         *  [ ] User should be able to set/unset goals as achieved at any time. 
+         *  [ ] Every time when user starts a session, if there are outstanding (not achieved) goals, display the list and let the user choose ones to be the targets of the session
+         *  [ ] After the practice session ends (either the time goal is reached or when the user select to end the session), display the targted goals and let the user select which goals are achieved. Achieved goals are no longer outstanding goals. 
+         *  [ ] Keep a history of all achieved goals so that user can review later. 
+
 
 ## Potential Future Features
 
