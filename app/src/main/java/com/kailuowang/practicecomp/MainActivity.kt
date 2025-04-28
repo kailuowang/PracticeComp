@@ -60,6 +60,8 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import android.content.Context
 import android.content.pm.PackageInfo
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.derivedStateOf
 
 // Define navigation routes
 object AppDestinations {
@@ -180,7 +182,8 @@ fun PracticeApp(
                     // Reset state and navigate back, but don't stop service here
                     // Service will only be stopped when End Session button is pressed
                     navController.popBackStack()
-                }
+                },
+                goalsViewModel = goalsViewModel
             )
         }
         composable(route = AppDestinations.PRACTICE_CALENDAR) {
@@ -530,11 +533,21 @@ fun PracticeSessionItem(
 fun PracticeSessionScreen(
     viewModel: PracticeViewModel,
     onEndSession: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    goalsViewModel: GoalsViewModel = PracticeAppContainer.provideGoalsViewModel(LocalContext.current.applicationContext as Application)
 ) {
     val context = LocalContext.current
     var isServiceRunning by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    var showGoalSelectionDialog by remember { mutableStateOf(false) }
+    var showGoalCompletionDialog by remember { mutableStateOf(false) }
+    val outstandingGoals by goalsViewModel.outstandingGoals.collectAsState(initial = emptyList())
+    val targetedGoalIds = viewModel.getTargetedGoalIds()
+    val targetedGoals by remember(targetedGoalIds) {
+        derivedStateOf {
+            outstandingGoals.filter { goal -> targetedGoalIds.contains(goal.id) }
+        }
+    }
 
     // --- Permission Handling ---
     val permissionsToRequest = remember {
@@ -557,6 +570,11 @@ fun PracticeSessionScreen(
                 if (!isServiceRunning) {
                    startTrackingService(context)
                    isServiceRunning = true
+                   
+                   // Only show goal selection dialog if there are outstanding goals
+                   if (outstandingGoals.isNotEmpty()) {
+                       showGoalSelectionDialog = true
+                   }
                 }
             } else {
                 Log.w("PracticeSessionScreen", "Required permissions were denied.")
@@ -577,6 +595,11 @@ fun PracticeSessionScreen(
             if (!isServiceRunning) {
                 startTrackingService(context)
                 isServiceRunning = true
+                
+                // Only show goal selection dialog if there are outstanding goals
+                if (outstandingGoals.isNotEmpty()) {
+                    showGoalSelectionDialog = true
+                }
             }
         } else {
             if (!hasPermissions) {
@@ -795,15 +818,19 @@ fun PracticeSessionScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // End Session Button - This stops the service and saves the session
+            // End Session Button
             Button(
                 onClick = {
-                    // Stop the service. Saving logic is now handled within the service itself.
-                    stopTrackingService(context)
-                    isServiceRunning = false // Update UI state immediately
-                    
-                    // Navigate back
-                    onEndSession()
+                    // Check if there are any targeted goals for this session
+                    if (targetedGoals.isNotEmpty()) {
+                        // Show goal completion dialog before ending the session
+                        showGoalCompletionDialog = true
+                    } else {
+                        // Stop the service and end session directly if no targeted goals
+                        stopTrackingService(context)
+                        isServiceRunning = false
+                        onEndSession()
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
@@ -814,6 +841,176 @@ fun PracticeSessionScreen(
             }
         }
     }
+
+    // Goals Selection Dialog
+    if (showGoalSelectionDialog) {
+        SessionGoalSelectionDialog(
+            outstandingGoals = outstandingGoals,
+            onDismiss = { showGoalSelectionDialog = false },
+            onConfirm = { selectedGoalIds ->
+                goalsViewModel.setSessionTargetedGoals(selectedGoalIds)
+                viewModel.setTargetedGoalIds(selectedGoalIds)
+                showGoalSelectionDialog = false
+            }
+        )
+    }
+    
+    // Goals Completion Dialog
+    if (showGoalCompletionDialog) {
+        SessionGoalCompletionDialog(
+            targetedGoals = targetedGoals,
+            onDismiss = { 
+                showGoalCompletionDialog = false
+                onEndSession()
+            },
+            onConfirm = { achievedGoalIds ->
+                if (achievedGoalIds.isNotEmpty()) {
+                    goalsViewModel.markGoalsAchievedInSession(achievedGoalIds)
+                }
+                showGoalCompletionDialog = false
+                onEndSession()
+            }
+        )
+    }
+}
+
+@Composable
+fun SessionGoalSelectionDialog(
+    outstandingGoals: List<TechnicalGoal>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    val selectedGoalIds = remember { mutableStateListOf<String>() }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Session Goals") },
+        text = {
+            Column {
+                Text(
+                    "Select the technical goals you want to focus on in this session:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn {
+                    items(outstandingGoals) { goal ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (selectedGoalIds.contains(goal.id)) {
+                                        selectedGoalIds.remove(goal.id)
+                                    } else {
+                                        selectedGoalIds.add(goal.id)
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = selectedGoalIds.contains(goal.id),
+                                onCheckedChange = { checked ->
+                                    if (checked) {
+                                        selectedGoalIds.add(goal.id)
+                                    } else {
+                                        selectedGoalIds.remove(goal.id)
+                                    }
+                                }
+                            )
+                            Text(
+                                text = goal.description,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedGoalIds.toList()) }) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Skip")
+            }
+        }
+    )
+}
+
+@Composable
+fun SessionGoalCompletionDialog(
+    targetedGoals: List<TechnicalGoal>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    val achievedGoalIds = remember { mutableStateListOf<String>() }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Session Goals") },
+        text = {
+            Column {
+                Text(
+                    "Which technical goals did you achieve in this session?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (targetedGoals.isEmpty()) {
+                    Text(
+                        "No goals were targeted for this session.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    LazyColumn {
+                        items(targetedGoals) { goal ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (achievedGoalIds.contains(goal.id)) {
+                                            achievedGoalIds.remove(goal.id)
+                                        } else {
+                                            achievedGoalIds.add(goal.id)
+                                        }
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = achievedGoalIds.contains(goal.id),
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            achievedGoalIds.add(goal.id)
+                                        } else {
+                                            achievedGoalIds.remove(goal.id)
+                                        }
+                                    }
+                                )
+                                Text(
+                                    text = goal.description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(achievedGoalIds.toList()) }) {
+                Text("Confirm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Skip")
+            }
+        }
+    )
 }
 
 // Helper functions to start/stop service

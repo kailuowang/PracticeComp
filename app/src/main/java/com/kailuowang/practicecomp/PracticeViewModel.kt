@@ -33,6 +33,7 @@ data class PracticeUiState(
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val TAG = "PracticeViewModel"
     private val sharedPrefs = application.getSharedPreferences("PracticeCompPrefs", Context.MODE_PRIVATE)
     private val PREF_KEY_SESSIONS = "saved_sessions"
     private val PREF_KEY_GOAL_MINUTES = "practice_goal_minutes"
@@ -393,6 +394,64 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         return _sessions.value
             .find { it.id == sessionId }
             ?.targetedGoalIds ?: emptyList()
+    }
+
+    // Add a method to set targeted goal IDs for the current session
+    fun setTargetedGoalIds(goalIds: List<String>) {
+        val currentSession = getCurrentPracticeSession()
+        if (currentSession != null) {
+            val updatedSession = currentSession.copy(
+                targetedGoalIds = goalIds
+            )
+            
+            // Update the session in memory
+            val currentSessions = _sessions.value.toMutableList()
+            val index = currentSessions.indexOfFirst { it.id == currentSession.id }
+            if (index != -1) {
+                currentSessions[index] = updatedSession
+                _sessions.value = currentSessions
+                
+                // Save to persistent storage
+                saveSessions(currentSessions)
+                
+                Log.d(TAG, "Set ${goalIds.size} targeted goal IDs for current session ${currentSession.id}")
+            }
+        } else {
+            Log.w(TAG, "Cannot set targeted goal IDs - no active session")
+        }
+    }
+    
+    /**
+     * Gets the current practice session, if one is active
+     */
+    private fun getCurrentPracticeSession(): PracticeSession? {
+        return _sessions.value.lastOrNull()
+    }
+
+    // Save sessions to SharedPreferences
+    private fun saveSessions(sessions: List<PracticeSession>) {
+        try {
+            // Convert to JSON for SharedPreferences
+            val jsonArray = JSONArray()
+            sessions.forEach { session ->
+                val jsonObject = sessionToJson(session)
+                jsonArray.put(jsonObject)
+            }
+            
+            // Save to SharedPreferences
+            sharedPrefs.edit()
+                .putString(PREF_KEY_SESSIONS, jsonArray.toString())
+                .apply()
+            
+            Log.d(TAG, "Saved ${sessions.size} sessions to SharedPreferences")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving sessions to SharedPreferences", e)
+        }
+    }
+    
+    // Get targeted goal IDs from the most recent session
+    fun getTargetedGoalIds(): List<String> {
+        return getCurrentPracticeSession()?.targetedGoalIds ?: emptyList()
     }
 
     // TODO: Add methods to start/stop session, update timer, etc.
