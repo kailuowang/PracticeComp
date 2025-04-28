@@ -67,6 +67,7 @@ object AppDestinations {
     const val PRACTICE_SESSION = "practiceSession"
     const val PRACTICE_CALENDAR = "practiceCalendar"
     const val SETTINGS = "settings"
+    const val GOALS_MANAGEMENT = "goalsManagement"
 }
 
 class MainActivity : ComponentActivity() {
@@ -105,6 +106,8 @@ fun PracticeApp(
 ) {
     // Get ViewModel from container
     val practiceViewModel = PracticeAppContainer.provideViewModel(LocalContext.current.applicationContext as Application)
+    // Get GoalsViewModel from container
+    val goalsViewModel = PracticeAppContainer.provideGoalsViewModel(LocalContext.current.applicationContext as Application)
     
     // Simple session state to track
     val isReturningFromSession = remember { mutableStateOf(false) }
@@ -161,6 +164,9 @@ fun PracticeApp(
                 },
                 onSettingsClick = {
                     navController.navigate(AppDestinations.SETTINGS)
+                },
+                onGoalsClick = {
+                    navController.navigate(AppDestinations.GOALS_MANAGEMENT)
                 }
             )
         }
@@ -189,6 +195,14 @@ fun PracticeApp(
                 onBackClick = {
                     navController.popBackStack()
                 }
+            )
+        }
+        composable(route = AppDestinations.GOALS_MANAGEMENT) {
+            GoalsManagementScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                viewModel = goalsViewModel
             )
         }
     }
@@ -229,6 +243,7 @@ fun PracticeListScreen(
     onResumeSession: () -> Unit,
     onCalendarClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onGoalsClick: () -> Unit,
     viewModel: PracticeViewModel = viewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState()
@@ -282,6 +297,13 @@ fun PracticeListScreen(
                         Icon(
                             imageVector = Icons.Default.Settings, 
                             contentDescription = "Settings"
+                        )
+                    }
+                    // Technical Goals icon
+                    IconButton(onClick = onGoalsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Add, 
+                            contentDescription = "Technical Goals"
                         )
                     }
                     // Calendar icon
@@ -1047,7 +1069,8 @@ fun PracticeListScreenPreview() {
             isBackgroundSessionActive = false, 
             onResumeSession = {}, 
             onCalendarClick = {},
-            onSettingsClick = {}
+            onSettingsClick = {},
+            onGoalsClick = {}
         )
     }
 }
@@ -1061,7 +1084,8 @@ fun PracticeListScreenWithActiveSessionPreview() {
             isBackgroundSessionActive = true, 
             onResumeSession = {}, 
             onCalendarClick = {},
-            onSettingsClick = {}
+            onSettingsClick = {},
+            onGoalsClick = {}
         )
     }
 }
